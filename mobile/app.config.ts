@@ -1,0 +1,53 @@
+export default {
+  name: 'TAV Communication',
+  slug: 'tav-communication',
+  owner: 'automation2',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/images/icon.png',
+  scheme: 'tavcommunication',
+  userInterfaceStyle: 'automatic',
+  ios: {
+    icon: './assets/expo.icon',
+    bundleIdentifier: 'com.texasautovalue.communication',
+    googleServicesFile: './GoogleService-Info.plist',
+    supportsTablet: false,
+  },
+  android: {
+    package: 'com.texasautovalue.communication',
+    googleServicesFile: './google-services.json',
+    adaptiveIcon: {
+      backgroundColor: '#E6F4FE',
+      foregroundImage: './assets/images/android-icon-foreground.png',
+      backgroundImage: './assets/images/android-icon-background.png',
+      monochromeImage: './assets/images/android-icon-monochrome.png',
+    },
+    predictiveBackGestureEnabled: false,
+  },
+  web: {
+    output: 'static',
+    favicon: './assets/images/favicon.png',
+  },
+  plugins: [
+    'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#09090b',
+        android: {
+          image: './assets/images/splash-icon.png',
+          imageWidth: 76,
+        },
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+    reactCompiler: true,
+  },
+  extra: {
+    eas: {
+      projectId: '372f91c4-28b4-47af-b1ed-bd902a89127a',
+    },
+  },
+};

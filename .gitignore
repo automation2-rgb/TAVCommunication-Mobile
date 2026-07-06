@@ -1,0 +1,20 @@
+# IDE / editor
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Mobile app (see mobile/.gitignore for Expo/native details)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/.env
+mobile/.env*.local
+mobile/android/
+mobile/ios/
+
+# Secrets — keep Firebase/Supabase env local only
+mobile/.env.local

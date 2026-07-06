@@ -1,0 +1,32 @@
+export const tavColors = {
+  zinc950: '#09090b',
+  zinc50: '#fafafa',
+  zinc100: '#f4f4f5',
+  zinc200: '#e4e4e7',
+  zinc400: '#a1a1aa',
+  zinc500: '#71717a',
+  zinc600: '#52525b',
+  zinc700: '#3f3f46',
+  zinc900: '#18181b',
+  white: '#ffffff',
+  blue: '#0a84ff',
+  bubbleIn: '#e5e5ea',
+  bubbleOut: '#0a84ff',
+  composerSlab: '#f2f2f7',
+  threadListBg: '#f8f8f8',
+  canvas: '#ffffff',
+  red600: '#dc2626',
+  red50: '#fef2f2',
+  emerald600: '#059669',
+  emerald50: '#ecfdf5',
+  amber600: '#d97706',
+  amber50: '#fffbeb',
+} as const;
+
+export const tavLayout = {
+  headerHeight: 52,
+  sendButtonSize: 40,
+  iconButtonSize: 40,
+  composerRadius: 22,
+  bubbleRadius: 18,
+} as const;

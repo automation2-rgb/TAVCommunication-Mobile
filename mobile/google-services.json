@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "526904385186",
+    "project_id": "tav-communication",
+    "storage_bucket": "tav-communication.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526904385186:android:7ae3c4b0601d2b993481fb",
+        "android_client_info": {
+          "package_name": "com.texasautovalue.communication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfBjEqzN9_M-wqAibz97Oy5Z-s649OLlc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
