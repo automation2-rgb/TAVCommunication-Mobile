@@ -50,6 +50,4 @@ export async function submitOnboardingApplication(payload: OnboardingApplyPayloa
   throw new Error(message);
 }
 
-export function isValidE164Phone(value: string) {
-  return /^\+\d{10,15}$/.test(value.trim());
-}
+export { isValidE164Phone } from '@/lib/phone/e164';

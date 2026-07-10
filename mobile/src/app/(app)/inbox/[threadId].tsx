@@ -2,15 +2,20 @@ import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
-import { Composer } from '@/components/inbox/composer';
+import { Composer, type ComposerSendPayload } from '@/components/inbox/composer';
 import { ConversationHeader } from '@/components/inbox/conversation-header';
 import { EditDisplayNameModal } from '@/components/inbox/edit-display-name-modal';
 import { MessageList } from '@/components/inbox/message-list';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
 import { useThreadMessages } from '@/hooks/use-thread-messages';
 import { useAuth } from '@/lib/auth/auth-provider';
-import { createOptimisticMessage, sendDirectMessage } from '@/lib/messaging/send-message';
-import { fetchThreadById, formatThreadTitle } from '@/lib/messaging/threads';
+import {
+  createOptimisticMessage,
+  createPendingAttachmentPreviews,
+  sendDirectMessage,
+  type PendingAttachmentPreview,
+} from '@/lib/messaging/send-message';
+import { fetchThreadById, formatThreadTitle, resolveOutboundSendTarget } from '@/lib/messaging/threads';
 import { markThreadDone, reopenThread } from '@/lib/messaging/thread-archive';
 import { markThreadUnread, upsertThreadRead, fetchThreadReads } from '@/lib/messaging/thread-reads';
 import { updateThreadDisplayName } from '@/lib/messaging/update-thread';
@@ -29,6 +34,9 @@ export default function ConversationScreen() {
   const [thread, setThread] = useState<Thread | null>(null);
   const [readAt, setReadAt] = useState<string | null>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [pendingAttachmentsByMessageId, setPendingAttachmentsByMessageId] = useState<
+    Record<string, PendingAttachmentPreview[]>
+  >({});
   const [isSending, setIsSending] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
 
@@ -73,8 +81,20 @@ export default function ConversationScreen() {
   const isDone = Boolean(thread?.archived_at);
 
   const handleSend = useCallback(
-    async (body: string) => {
+    async ({ body, files }: ComposerSendPayload) => {
       if (!userId || !activeInbox?.id || !threadId) {
+        return;
+      }
+
+      const resolvedThread = thread ?? (await fetchThreadById(threadId));
+      if (!resolvedThread) {
+        Alert.alert('Unable to send', 'Conversation not found.');
+        return;
+      }
+
+      const target = resolveOutboundSendTarget(resolvedThread);
+      if (target.kind === 'unsupported') {
+        Alert.alert('Cannot send here', target.reason);
         return;
       }
 
@@ -83,30 +103,59 @@ export default function ConversationScreen() {
         body,
         sentBy: userId,
       });
+      const pendingAttachments = createPendingAttachmentPreviews(optimistic.id, files);
 
       setLocalMessages((current) => upsertMessage(current, optimistic));
+      if (pendingAttachments.length > 0) {
+        setPendingAttachmentsByMessageId((current) => ({
+          ...current,
+          [optimistic.id]: pendingAttachments,
+        }));
+      }
       setIsSending(true);
 
       try {
         const result = await sendDirectMessage({
           inboxId: activeInbox.id,
-          threadId,
+          threadId: target.kind === 'thread' ? target.threadId : undefined,
+          toE164: target.kind === 'to' ? target.toE164 : undefined,
+          fallbackThreadId: threadId,
           body,
+          files,
         });
 
-        if (result.message) {
-          setLocalMessages((current) =>
-            current.map((message) => (message.id === optimistic.id ? result.message! : message)),
-          );
-        } else {
-          setLocalMessages((current) =>
-            current.map((message) =>
-              message.id === optimistic.id ? { ...message, status: 'sent' } : message,
-            ),
-          );
-        }
+        setLocalMessages((current) =>
+          current.map((message) => {
+            if (message.id !== optimistic.id) {
+              return message;
+            }
+            if (result.message) {
+              return { ...message, ...result.message, thread_id: result.threadId };
+            }
+            return { ...message, status: 'sent' };
+          }),
+        );
+        setPendingAttachmentsByMessageId((current) => {
+          const pending = current[optimistic.id];
+          if (!pending?.length) {
+            return current;
+          }
 
-        if (result.threadId && result.threadId !== threadId) {
+          const next = { ...current };
+          delete next[optimistic.id];
+
+          const savedMessageId = result.message?.id;
+          if (savedMessageId && savedMessageId !== optimistic.id) {
+            next[savedMessageId] = pending.map((attachment) => ({
+              ...attachment,
+              id: attachment.id.replace(optimistic.id, savedMessageId),
+            }));
+          }
+
+          return next;
+        });
+
+        if (result.threadId !== threadId) {
           router.replace(`/(app)/inbox/${result.threadId}` as Href);
         }
       } catch (error) {
@@ -115,12 +164,14 @@ export default function ConversationScreen() {
             message.id === optimistic.id ? { ...message, status: 'failed' } : message,
           ),
         );
-        Alert.alert('Send failed', error instanceof Error ? error.message : 'Unable to send message.');
+        const message = error instanceof Error ? error.message : 'Unable to send message.';
+        Alert.alert('Send failed', message);
+        throw error instanceof Error ? error : new Error(message);
       } finally {
         setIsSending(false);
       }
     },
-    [activeInbox?.id, router, threadId, userId],
+    [activeInbox?.id, router, thread, threadId, userId],
   );
 
   const openOverflowMenu = useCallback(() => {
@@ -195,6 +246,7 @@ export default function ConversationScreen() {
         <MessageList
           messages={mergedMessages}
           currentUserId={userId ?? ''}
+          pendingAttachmentsByMessageId={pendingAttachmentsByMessageId}
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}

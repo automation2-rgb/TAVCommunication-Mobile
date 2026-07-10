@@ -80,7 +80,7 @@ export async function searchTeamProfiles(query: string): Promise<ContactDirector
   const trimmed = query.trim();
   let request = supabase
     .from('profiles')
-    .select('id, email, display_name, phone_e164, created_at')
+    .select('id, email, display_name, phone_e164, role, created_at')
     .eq('approval_status', 'approved')
     .order('display_name', { ascending: true })
     .limit(500);
@@ -100,7 +100,7 @@ export async function searchTeamProfiles(query: string): Promise<ContactDirector
     phone_e164: profile.phone_e164 ?? '',
     display_name: profile.display_name ?? profile.email,
     notes: null,
-    tags: null,
+    tags: profile.role ? [profile.role] : null,
     source: 'team',
     updated_at: profile.created_at ?? null,
   }));

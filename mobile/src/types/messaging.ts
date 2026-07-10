@@ -49,7 +49,7 @@ export type MessageAttachment = {
   message_id: string;
   content_type: string | null;
   filename: string | null;
-  byte_size: number | null;
+  size_bytes: number | null;
 };
 
 export type ThreadRead = {

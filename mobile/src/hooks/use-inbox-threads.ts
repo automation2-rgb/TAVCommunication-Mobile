@@ -7,7 +7,7 @@ import {
   unsubscribeChannel,
 } from '@/lib/messaging/realtime';
 import { buildThreadReadMap, fetchThreadReads } from '@/lib/messaging/thread-reads';
-import { fetchThreadsForInbox } from '@/lib/messaging/threads';
+import { fetchThreadsForInbox, isDirectThread } from '@/lib/messaging/threads';
 import { isThreadUnread } from '@/lib/messaging/unread';
 import type { Thread, ThreadListTab } from '@/types/messaging';
 
@@ -67,9 +67,15 @@ export function useInboxThreads(params: {
 
     const channel = subscribeToInboxThreads(inboxId, {
       onInsert: (thread) => {
+        if (!isDirectThread(thread)) {
+          return;
+        }
         setThreads((current) => mergeThreadList(current, thread));
       },
       onUpdate: (thread) => {
+        if (!isDirectThread(thread)) {
+          return;
+        }
         setThreads((current) => mergeThreadList(current, thread));
       },
       onDelete: (threadId) => {

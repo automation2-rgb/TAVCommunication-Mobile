@@ -8,27 +8,27 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 **Code location:** `mobile/` in this repo (docs stay at repo root).
 
-**Backend changes:** Spec in [`docs/backend-spec-v1.md`](./docs/backend-spec-v1.md) — apply in the Vercel/web repo before mobile push goes live.
+**Backend changes:** Spec in [`docs/backend-spec-v1.md`](./docs/backend-spec-v1.md) · implementation guide [`docs/native-client-backend-changes.md`](./docs/native-client-backend-changes.md) — Bearer auth, push register, inbound dispatch via `after()` + `inbound-sms` channel (prod verified 2026-07-09).
 
 ---
 
 ## Progress summary
 
-**Last updated:** 2026-07-05 · **Current focus:** Phase 5 inbox UI implemented — test thread list, send, mark done on device
+**Last updated:** 2026-07-10 · **Current focus:** Phase 8 supporting screens — Contacts done; Profile / Settings / Help next
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Prerequisites | 🟡 ~85% — Apple/Play deferred |
-| 1 | Backend (Vercel) | 🟡 ~15% — `push_device_tokens` table only |
-| 2 | Project scaffold | 🟡 ~75% — inbox UI components, messaging tokens in `theme.ts` |
-| 3 | Authentication | 🟡 ~95% — redirect URL confirmed; device sign-in + onboarding API test pending |
-| 4 | Data layer | 🟡 ~95% — libs + hooks implemented; gate test pending |
-| 5 | Inbox UI | 🟡 ~90% — list, conversation, composer, switcher, compose; send/done need Phase 1 + device test |
-| 6 | MMS | ⬜ Not started |
-| 7 | Push notifications | ⬜ Not started |
-| 8 | Supporting screens | ⬜ Not started |
+| 1 | Backend (Vercel) | ✅ Done — Bearer, push register, FCM dispatch (`after()`), Firebase env verified |
+| 2 | Project scaffold | 🟡 ~90% — push wired; Geist fonts deferred |
+| 3 | Authentication | ✅ Done — Google sign-in verified on Android dev build |
+| 4 | Data layer | ✅ Done — libs + hooks; inbox E2E verified |
+| 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
+| 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
+| 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
+| 8 | Supporting screens | 🟡 ~40% — Contacts + compose `?to=` deep link; Profile/Settings/Help pending |
 | 9 | EAS build & distribution | ⬜ Not started (Apple/Play deferred) |
-| 10 | QA & sign-off | ⬜ Not started |
+| 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS verified; full matrix pending |
 
 **Status legend:** ✅ Done · 🟡 Partial · ⏸ Deferred · ⬜ Not started
 
@@ -137,30 +137,30 @@ Apply spec in [`docs/backend-spec-v1.md`](./docs/backend-spec-v1.md). Summary:
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 1.1.1 | Update `getApprovedApiUser()` (and pending-user helper) to accept **either** cookie session **or** `Authorization: Bearer <supabase_access_token>`. |
-| ⬜ | 1.1.2 | Validate JWT with Supabase; load profile; enforce `@texasautovalue.com` + `approval_status` same as web. |
-| ⬜ | 1.1.3 | No behavior change for web cookie clients. |
-| ⬜ | 1.1.4 | Smoke-test: `POST /api/messages/send` with Bearer token from a test user. |
+| ✅ | 1.1.1 | Update `getApprovedApiUser()` (and pending-user helper) to accept **either** cookie session **or** `Authorization: Bearer <supabase_access_token>`. | web `78ae3da` |
+| ✅ | 1.1.2 | Validate JWT with Supabase; load profile; enforce `@texasautovalue.com` + `approval_status` same as web. | + `createApiScopedClient()` on RLS routes |
+| ✅ | 1.1.3 | No behavior change for web cookie clients. |
+| ✅ | 1.1.4 | Smoke-test: `POST /api/messages/send` with Bearer token from a test user. | verified on Android dev build |
 
 ### Step 1.2 — Push infrastructure
 
 | Status | # | Rule |
 |--------|---|------|
-| ✅ | 1.2.1 | Add Supabase table `push_device_tokens` (see backend spec). |
-| ⬜ | 1.2.2 | Add `POST /api/push/register` — approved user registers FCM token + platform. |
-| ⬜ | 1.2.3 | Add `DELETE /api/push/register` — remove token on logout. |
-| ⬜ | 1.2.4 | On inbound SMS insert (Twilio webhook path), call push dispatcher for inbox members (except sender if outbound). |
-| ⬜ | 1.2.5 | Push payload: inbox name, sender label, message preview, `thread_id`, `inbox_id` for deep link. |
-| ⬜ | 1.2.6 | Vercel env: `FIREBASE_SERVICE_ACCOUNT_JSON` (or individual Firebase admin vars). |
-| ⬜ | 1.2.7 | **Always send** — no quiet hours, no user preference gate in v1 (optional Settings toggle can disable client-side registration later). |
+| ✅ | 1.2.1 | Add Supabase table `push_device_tokens` (see backend spec). | already in prod; mirror in `tools/sql/` |
+| ✅ | 1.2.2 | Add `POST /api/push/register` — approved user registers FCM token + platform. |
+| ✅ | 1.2.3 | Add `DELETE /api/push/register` — remove token on logout. |
+| ✅ | 1.2.4 | On inbound SMS insert (Twilio webhook path), call push dispatcher for inbox members (except sender if outbound). | `after()` so Vercel completes FCM after webhook returns |
+| ✅ | 1.2.5 | Push payload: inbox name, sender label, message preview, `thread_id`, `inbox_id` for deep link. | Android `channelId: inbound-sms` |
+| ✅ | 1.2.6 | Vercel env: `FIREBASE_SERVICE_ACCOUNT_JSON` (or individual Firebase admin vars). | verified prod 2026-07-09 |
+| ✅ | 1.2.7 | **Always send** — no quiet hours, no user preference gate in v1 (optional Settings toggle can disable client-side registration later). |
 
 ### Step 1.3 — Deploy and verify
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 1.3.1 | Deploy to production Vercel. |
-| ⬜ | 1.3.2 | Verify Bearer auth on onboarding + send endpoints. |
-| ⬜ | 1.3.3 | Verify push register returns 200 with test token. |
+| ✅ | 1.3.1 | Deploy to production Vercel. | web `78ae3da` |
+| ✅ | 1.3.2 | Verify Bearer auth on onboarding + send endpoints. | verified on Android dev build |
+| ✅ | 1.3.3 | Verify push register returns 200 with test token. | FCM inbound push verified 2026-07-09 |
 
 **Gate:** Phase 2+ may proceed in parallel for UI, but **Phase 7 push** and **TestFlight build** require Phase 1 complete.
 
@@ -183,9 +183,10 @@ Apply spec in [`docs/backend-spec-v1.md`](./docs/backend-spec-v1.md). Summary:
 |--------|---------|---------|
 | ✅ | `@supabase/supabase-js` | Auth + DB + Realtime |
 | ✅ | `expo-secure-store` | Session persistence |
-| 🟡 | `expo-auth-session` + `expo-web-browser` | Google OAuth flow — installed + wired in login |
-| ⬜ | `expo-notifications` + `@react-native-firebase/app` + `@react-native-firebase/messaging` (or Expo-notifications + FCM via EAS) | Push |
-| ⬜ | `expo-image-picker` | MMS attachments |
+| ✅ | `expo-auth-session` + `expo-web-browser` | Google OAuth flow — verified on Android dev build |
+| ✅ | `expo-notifications` + FCM client | Push — FCM token + inbound notifications verified on Android |
+| ✅ | `expo-image-picker` | MMS attachments |
+| ✅ | `expo-file-system` | MMS multipart upload (`File` + `expo/fetch`) |
 | ✅ | `expo-image` | Attachment display |
 | ⬜ | `@expo-google-fonts/geist` (or closest Geist match) | Typography match |
 | ✅ | `react-native-safe-area-context`, `react-native-gesture-handler`, `react-native-reanimated` | Navigation + sheets |
@@ -255,7 +256,7 @@ Reference: `flows/01-auth-and-onboarding.md`, `reference/user-roles-and-permissi
 | Status | # | Rule |
 |--------|---|------|
 | ✅ | 3.2.1 | Use `expo-auth-session` with Supabase `signInWithOAuth({ provider: 'google' })`. |
-| 🟡 | 3.2.2 | Redirect: `tavcommunication://auth/callback` (register in Supabase redirect URLs). |
+| ✅ | 3.2.2 | Redirect: `tavcommunication://auth/callback` (register in Supabase redirect URLs). |
 | ✅ | 3.2.3 | After OAuth, verify email ends with `@texasautovalue.com`; if not, sign out + show domain error. |
 | ✅ | 3.2.4 | Login screen: dark zinc hero (`#09090b`) — only login uses dark theme per docs. |
 
@@ -274,7 +275,7 @@ Reference: `flows/01-auth-and-onboarding.md`, `reference/user-roles-and-permissi
 |--------|---|------|
 | ✅ | 3.4.1 | `(app)` group requires `approval_status === 'approved'`. |
 | ✅ | 3.4.2 | Redirect approved users away from auth screens to inbox. |
-| 🟡 | 3.4.3 | Sign out clears Supabase session + push token (`DELETE /api/push/register`). — sign-out wired; push API pending Phase 1 |
+| ✅ | 3.4.3 | Sign out clears Supabase session + push token (`DELETE /api/push/register`). |
 
 **Gate:** Can sign in, complete onboarding, land on inbox (empty state OK).
 
@@ -370,7 +371,7 @@ Reference: `flows/02-inbox-and-direct-messaging.md`, mobile sections in UI docs.
 | Status | # | Rule |
 |--------|---|------|
 | ✅ | 5.5.1 | “New conversation” → recipient picker (contacts search + manual E.164). |
-| 🟡 | 5.5.2 | First send creates thread via send API; navigate to new thread. | Needs Phase 1 Bearer on send API to verify |
+| ✅ | 5.5.2 | First send creates thread via send API; navigate to new thread. | verified on Android dev build |
 
 ### Step 5.6 — Inbox switcher sheet
 
@@ -391,13 +392,14 @@ Reference: `flows/02-inbox-and-direct-messaging.md` composer constraints.
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 6.1.1 | Attach via camera or gallery (`expo-image-picker`). |
-| ⬜ | 6.1.2 | Max 10 files, 5 MB each; images + short audio/video only (no PDF). |
-| ⬜ | 6.1.3 | Send as `multipart/form-data` to `/api/messages/send`. |
-| ⬜ | 6.1.4 | Display inbound attachments inline; tap to full-screen viewer. |
-| ⬜ | 6.1.5 | Load media via `/api/messages/attachments/[id]/url` redirect. |
+| ✅ | 6.1.1 | Attach via camera or gallery (`expo-image-picker`). | `use-composer-attachments` + composer **＋** button |
+| ✅ | 6.1.1b | Client image compression before upload (web parity). | `compress-image.ts` + `expo-image-manipulator` |
+| ✅ | 6.1.2 | Max 10 files, 4 MB each; images + short audio/video only (no PDF). | `mms-policy.ts` — matches web `MMS_MAX_UPLOAD_BYTES` |
+| ✅ | 6.1.3 | Send as `multipart/form-data` to `/api/messages/send`. | XHR + RN `{ uri, name, type }` parts, field `attachment` (repeated), 60s timeout |
+| ✅ | 6.1.4 | Display inbound attachments inline; tap to full-screen viewer. | `message-bubble`, `attachment-lightbox` |
+| ✅ | 6.1.5 | Load media via `/api/messages/attachments/[id]/url` redirect. | `attachment-url.ts` + Bearer headers on `expo-image` |
 
-**Gate:** Send and receive photo MMS on iOS and Android.
+**Gate:** ✅ Send and receive photo MMS on Android — verified 2026-07-10. iOS pending TestFlight build.
 
 ---
 
@@ -409,22 +411,22 @@ Requires **Phase 1 backend** deployed.
 
 | Status | # | Rule |
 |--------|---|------|
-| 🟡 | 7.1.1 | Configure FCM in Expo/EAS (upload Firebase service account to EAS). — Firebase config files in app only |
-| ⬜ | 7.1.2 | Request notification permission on first approved inbox load (or after login). |
-| ⬜ | 7.1.3 | Get FCM token → `POST /api/push/register` with `{ token, platform: 'ios' \| 'android' }`. |
-| ⬜ | 7.1.4 | Re-register token on app launch if changed. |
-| ⬜ | 7.1.5 | On sign out → `DELETE /api/push/register`. |
+| 🟡 | 7.1.1 | Configure FCM in Expo/EAS (upload Firebase service account to EAS). — `google-services.json` + dev build verified; EAS upload pending for preview/production builds |
+| ✅ | 7.1.2 | Request notification permission on first approved inbox load (or after login). |
+| ✅ | 7.1.3 | Get FCM token → `POST /api/push/register` with `{ token, platform: 'ios' \| 'android' }`. |
+| ✅ | 7.1.4 | Re-register token on app launch if changed. |
+| ✅ | 7.1.5 | On sign out → `DELETE /api/push/register`. |
 
 ### Step 7.2 — Notification handling
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 7.2.1 | Foreground: show in-app banner (optional) **and** still rely on backend always sending. |
-| ⬜ | 7.2.2 | Background/killed: system notification from FCM. |
-| ⬜ | 7.2.3 | Tap notification → deep link to `/inbox?inbox=&thread=`. |
-| ⬜ | 7.2.4 | No quiet hours; no suppression when app open (per product decision). |
+| ✅ | 7.2.1 | Foreground: show in-app banner (optional) **and** still rely on backend always sending. |
+| ✅ | 7.2.2 | Background/killed: system notification from FCM. — verified Android dev build 2026-07-09; iOS pending |
+| ✅ | 7.2.3 | Tap notification → deep link to `/inbox?inbox=&thread=`. |
+| ✅ | 7.2.4 | No quiet hours; no suppression when app open (per product decision). |
 
-**Gate:** Inbound SMS to closed app shows push on both platforms; tap opens correct thread.
+**Gate:** ✅ Android verified 2026-07-09 — inbound SMS with app backgrounded shows push; tap opens correct thread. iOS pending TestFlight build.
 
 ---
 
@@ -436,10 +438,10 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 8.1.1 | Tabs: **External**, **Team** (skip Saved groups in v1). |
-| ⬜ | 8.1.2 | Search + browse via Supabase RPC (same as web). |
-| ⬜ | 8.1.3 | Tap contact → start compose with pre-filled `to` E.164. |
-| ⬜ | 8.1.4 | No create/edit/delete in v1. |
+| ✅ | 8.1.1 | Tabs: **External**, **Team** (skip Saved groups in v1). | `ContactTabs` |
+| ✅ | 8.1.2 | Search + browse via Supabase RPC (same as web). | `useContactsDirectory` / `useContactsSearch` / `useTeamContacts` |
+| ✅ | 8.1.3 | Tap contact → start compose with pre-filled `to` E.164. | `compose?to=` + Contacts → compose |
+| ✅ | 8.1.4 | No create/edit/delete in v1. |
 
 ### Step 8.2 — Profile
 
@@ -512,8 +514,8 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 | ⬜ | 10.1.3 | Onboarding → pending | Form submits; pending screen shown |
 | ⬜ | 10.1.4 | Operator approves + assigns inbox | User reaches inbox with threads |
 | ⬜ | 10.1.5 | Send SMS | Delivered to real phone |
-| ⬜ | 10.1.6 | Receive SMS | Appears in thread + push when app backgrounded |
-| ⬜ | 10.1.7 | MMS photo | Send and receive |
+| ✅ | 10.1.6 | Receive SMS | Appears in thread + push when app backgrounded | Android verified 2026-07-09 |
+| ⬜ | 10.1.7 | MMS photo | Send and receive | Android verified 2026-07-10; iOS pending |
 | ⬜ | 10.1.8 | Mark done / reopen | Tab filters correct |
 | ⬜ | 10.1.9 | Unread | Badge and mark read/unread work |
 | ⬜ | 10.1.10 | No inbox assigned | Request access panel works |
@@ -556,7 +558,7 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 | ⏸ | Google iOS client ID | Supabase + Google Cloud |
 | ⏸ | Google Android client ID | Supabase + Google Cloud |
 | ✅ | Firebase config files | EAS + mobile native |
-| ⬜ | `FIREBASE_SERVICE_ACCOUNT_JSON` | Vercel (push send) |
+| ✅ | `FIREBASE_SERVICE_ACCOUNT_JSON` | Vercel (push send) — verified prod 2026-07-09 |
 | ⏸ | Apple Team ID | EAS iOS builds |
 | ⏸ | Play service account JSON | EAS submit (optional) |
 
@@ -580,4 +582,4 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 ---
 
-*Plan version: 1.3 · Last progress update: 2026-07-05 · Target: first company TestFlight + Play closed testing · ~5 users*
+*Plan version: 1.7 · Last progress update: 2026-07-10 · Target: first company TestFlight + Play closed testing · ~5 users*

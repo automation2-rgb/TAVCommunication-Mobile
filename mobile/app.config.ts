@@ -31,6 +31,23 @@ export default {
   plugins: [
     'expo-router',
     [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Allow TAV Communication to access your photos so you can attach images and videos to messages.',
+        cameraPermission:
+          'Allow TAV Communication to use your camera so you can take photos and videos for messages.',
+      },
+    ],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/images/android-icon-monochrome.png',
+        color: '#2563EB',
+        defaultChannel: 'inbound-sms',
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         backgroundColor: '#09090b',

@@ -1,11 +1,11 @@
-import { apiFetch } from '@/lib/api-client';
+import { getCachedDevicePushToken, unregisterDevicePushToken } from '@/lib/push/notifications';
 import { supabase } from '@/lib/supabase';
 
 export async function signOut() {
   try {
-    await apiFetch('/api/push/register', { method: 'DELETE' });
+    await unregisterDevicePushToken(getCachedDevicePushToken());
   } catch {
-    // Push unregister is optional until Phase 7 backend exists.
+    // Best-effort cleanup; session sign-out still proceeds.
   }
 
   await supabase.auth.signOut();

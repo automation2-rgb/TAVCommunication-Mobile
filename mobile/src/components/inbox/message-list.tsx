@@ -1,13 +1,17 @@
+import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
-import { MessageBubble } from '@/components/inbox/message-bubble';
 import { InboxEmptyState } from '@/components/inbox/empty-state';
+import { MessageBubble } from '@/components/inbox/message-bubble';
+import { useMessageAttachments } from '@/hooks/use-message-attachments';
+import type { PendingAttachmentPreview } from '@/lib/messaging/send-message';
 import { tavColors } from '@/lib/theme';
 import type { Message } from '@/types/messaging';
 
 type MessageListProps = {
   messages: Message[];
   currentUserId: string;
+  pendingAttachmentsByMessageId?: Record<string, PendingAttachmentPreview[]>;
   isLoading: boolean;
   isLoadingMore: boolean;
   hasMore: boolean;
@@ -17,11 +21,18 @@ type MessageListProps = {
 export function MessageList({
   messages,
   currentUserId,
+  pendingAttachmentsByMessageId = {},
   isLoading,
   isLoadingMore,
   hasMore,
   onLoadOlder,
 }: MessageListProps) {
+  const messageIds = useMemo(
+    () => messages.map((message) => message.id).filter((id) => !id.startsWith('optimistic-')),
+    [messages],
+  );
+  const { byMessageId } = useMessageAttachments(messageIds);
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -45,7 +56,12 @@ export function MessageList({
       data={messages}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <MessageBubble message={item} isSelf={item.direction === 'outbound' && item.sent_by === currentUserId} />
+        <MessageBubble
+          attachments={byMessageId.get(item.id)}
+          pendingAttachments={pendingAttachmentsByMessageId[item.id]}
+          isSelf={item.direction === 'outbound' && item.sent_by === currentUserId}
+          message={item}
+        />
       )}
       contentContainerStyle={styles.listContent}
       onEndReached={() => {

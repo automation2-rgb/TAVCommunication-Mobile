@@ -15,6 +15,20 @@ export type MessagesPage = {
   hasMore: boolean;
 };
 
+export async function fetchMessageById(messageId: string): Promise<Message | null> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select(MESSAGE_COLUMNS)
+    .eq('id', messageId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as Message | null) ?? null;
+}
+
 export async function fetchMessagesPage(
   threadId: string,
   options: FetchMessagesPageOptions = {},

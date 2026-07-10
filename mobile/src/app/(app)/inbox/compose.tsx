@@ -1,8 +1,9 @@
-import { Href, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,31 +15,53 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthButton } from '@/components/auth/auth-button';
 import { useContactsSearch } from '@/hooks/use-contacts-directory';
+import { useComposerAttachments } from '@/hooks/use-composer-attachments';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { isImageMimeType } from '@/lib/messaging/mms-policy';
+import { isValidE164Phone } from '@/lib/phone/e164';
 import { sendDirectMessage } from '@/lib/messaging/send-message';
+import { fetchThreadById, isDirectThread } from '@/lib/messaging/threads';
 import { tavColors } from '@/lib/theme';
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
 
 export default function ComposeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ to?: string | string[] }>();
   const { activeInbox } = useInboxWorkspace();
   const [query, setQuery] = useState('');
   const [manualE164, setManualE164] = useState('');
   const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const { results, isSearching } = useContactsSearch(query, query.trim().length >= 2);
+  const { files, removeFile, pickFromLibrary, pickFromCamera } = useComposerAttachments();
+
+  useEffect(() => {
+    const to = firstParam(params.to)?.trim();
+    if (to && isValidE164Phone(to)) {
+      setManualE164(to);
+    }
+  }, [params.to]);
 
   const recipient = useMemo(() => {
     const manual = manualE164.trim();
-    if (/^\+\d{10,15}$/.test(manual)) {
+    if (isValidE164Phone(manual)) {
       return manual;
     }
     return null;
   }, [manualE164]);
 
-  const canSend = Boolean(activeInbox?.twilio_phone_e164 && body.trim() && recipient);
+  const canSend = Boolean(
+    activeInbox?.twilio_phone_e164 && recipient && (body.trim().length > 0 || files.length > 0),
+  );
 
   const handleSend = async () => {
-    if (!activeInbox?.id || !recipient || !body.trim()) {
+    if (!activeInbox?.id || !recipient || (!body.trim() && files.length === 0)) {
       return;
     }
 
@@ -48,14 +71,18 @@ export default function ComposeScreen() {
         inboxId: activeInbox.id,
         toE164: recipient,
         body: body.trim(),
+        files,
       });
 
       if (result.threadId) {
-        router.replace(`/(app)/inbox/${result.threadId}` as Href);
-        return;
+        const returnedThread = await fetchThreadById(result.threadId);
+        if (returnedThread && isDirectThread(returnedThread)) {
+          router.replace(`/(app)/inbox/${result.threadId}` as Href);
+          return;
+        }
       }
 
-      Alert.alert('Message sent', 'Your message was sent. Open the thread from the inbox list.');
+      Alert.alert('Message sent', `Your message was sent to ${recipient}.`);
       router.back();
     } catch (error) {
       Alert.alert('Send failed', error instanceof Error ? error.message : 'Unable to send message.');
@@ -133,6 +160,43 @@ export default function ComposeScreen() {
             onChangeText={setBody}
           />
         </View>
+
+        <View style={styles.attachmentRow}>
+          <Pressable disabled={isSending} onPress={() => void pickFromLibrary()} style={styles.attachButton}>
+            <Text style={styles.attachLabel}>Photo library</Text>
+          </Pressable>
+          <Pressable
+            disabled={isSending}
+            onPress={() => void pickFromCamera()}
+            style={styles.attachButtonSecondary}>
+            <Text style={styles.attachLabelSecondary}>Camera</Text>
+          </Pressable>
+        </View>
+
+        {files.length > 0 ? (
+          <ScrollView horizontal contentContainerStyle={styles.previewRow} showsHorizontalScrollIndicator={false}>
+            {files.map((file, index) => (
+              <View key={`${file.uri}-${index}`} style={styles.previewTile}>
+                {isImageMimeType(file.type) ? (
+                  <Image source={{ uri: file.uri }} style={styles.previewImage} />
+                ) : (
+                  <View style={styles.previewFile}>
+                    <Text style={styles.previewFileIcon}>📎</Text>
+                    <Text numberOfLines={2} style={styles.previewFileLabel}>
+                      {file.name}
+                    </Text>
+                  </View>
+                )}
+                <Pressable
+                  disabled={isSending}
+                  onPress={() => removeFile(index)}
+                  style={styles.removeButton}>
+                  <Text style={styles.removeLabel}>×</Text>
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
 
         <AuthButton
           disabled={!canSend || isSending}
@@ -217,5 +281,85 @@ const styles = StyleSheet.create({
   resultMeta: {
     fontSize: 13,
     color: tavColors.zinc500,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  attachButton: {
+    borderWidth: 1,
+    borderColor: tavColors.zinc200,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: tavColors.zinc50,
+  },
+  attachButtonSecondary: {
+    borderWidth: 1,
+    borderColor: tavColors.zinc200,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: tavColors.white,
+  },
+  attachLabel: {
+    color: tavColors.zinc700,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  attachLabelSecondary: {
+    color: tavColors.zinc700,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  previewRow: {
+    gap: 8,
+  },
+  previewTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: tavColors.zinc100,
+    borderWidth: 1,
+    borderColor: tavColors.zinc200,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewFile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+    gap: 4,
+  },
+  previewFileIcon: {
+    fontSize: 18,
+  },
+  previewFileLabel: {
+    fontSize: 10,
+    lineHeight: 12,
+    textAlign: 'center',
+    color: tavColors.zinc600,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(9, 9, 11, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeLabel: {
+    color: tavColors.white,
+    fontSize: 16,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 });

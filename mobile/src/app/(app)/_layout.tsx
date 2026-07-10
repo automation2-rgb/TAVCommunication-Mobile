@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { PushNotificationBootstrap } from '@/components/push/push-notification-bootstrap';
 import { InboxWorkspaceProvider } from '@/contexts/inbox-workspace';
 import { useAuth } from '@/lib/auth/auth-provider';
 
@@ -8,6 +9,7 @@ function AppStack() {
 
   return (
     <InboxWorkspaceProvider userId={session?.user.id}>
+      <PushNotificationBootstrap />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="inbox" />
         <Stack.Screen name="contacts/index" />

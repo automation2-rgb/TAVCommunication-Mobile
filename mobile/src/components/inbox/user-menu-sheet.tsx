@@ -12,10 +12,10 @@ type UserMenuSheetProps = {
 };
 
 const MENU_ITEMS: Array<{ label: string; href: Href }> = [
-  { label: 'Contacts', href: '/(app)/contacts/index' as Href },
-  { label: 'Profile', href: '/(app)/profile/index' as Href },
-  { label: 'Settings', href: '/(app)/settings/index' as Href },
-  { label: 'Help', href: '/(app)/help/index' as Href },
+  { label: 'Contacts', href: '/(app)/contacts' as Href },
+  { label: 'Profile', href: '/(app)/profile' as Href },
+  { label: 'Settings', href: '/(app)/settings' as Href },
+  { label: 'Help', href: '/(app)/help' as Href },
 ];
 
 export function UserMenuSheet({ visible, displayName, onClose }: UserMenuSheetProps) {

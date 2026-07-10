@@ -50,6 +50,21 @@ curl -H "Authorization: Bearer TOKEN" \
 
 Expect 200 for approved user, 401 without token, 403 for wrong domain / not approved.
 
+### MMS media-only sends (`POST /api/messages/send`)
+
+Multipart MMS requests may omit `body` when one or more `attachment` parts are present (image/audio/video only, no caption). Validation must reject empty body only when **both** `body` is blank **and** there are no attachments — same as the web composer (“text and/or an attachment”).
+
+```typescript
+// Example guard in send route
+const body = String(formData.get('body') ?? '').trim();
+const attachments = formData.getAll('attachment').filter(/* non-empty File */);
+if (!body && attachments.length === 0) {
+  return NextResponse.json({ error: 'Message must include text and/or an attachment' }, { status: 400 });
+}
+```
+
+Mobile client sends repeated `attachment` form fields (same field name as web); `body` may be empty when attachments are present.
+
 ---
 
 ## 2. Push device tokens table

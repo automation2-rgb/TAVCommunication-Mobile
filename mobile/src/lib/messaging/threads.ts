@@ -5,7 +5,11 @@ const THREAD_COLUMNS =
   'id, inbox_id, thread_kind, customer_e164, display_name, contact_id, last_message_body, last_message_at, last_message_direction, last_message_sent_by, archived_at, archived_by, group_participant_snapshot, created_at';
 
 export async function fetchThreadsForInbox(inboxId: string, tab: Exclude<ThreadListTab, 'unread'>): Promise<Thread[]> {
-  let query = supabase.from('threads').select(THREAD_COLUMNS).eq('inbox_id', inboxId);
+  let query = supabase
+    .from('threads')
+    .select(THREAD_COLUMNS)
+    .eq('inbox_id', inboxId)
+    .eq('thread_kind', 'direct');
 
   if (tab === 'active') {
     query = query.is('archived_at', null);
@@ -42,4 +46,29 @@ export function formatThreadTitle(thread: Thread): string {
   }
 
   return 'Conversation';
+}
+
+export function isDirectThread(thread: Thread): boolean {
+  return thread.thread_kind === 'direct';
+}
+
+export type OutboundSendTarget =
+  | { kind: 'thread'; threadId: string }
+  | { kind: 'to'; toE164: string }
+  | { kind: 'unsupported'; reason: string };
+
+/** Mobile v1 always sends 1:1 via `to` when a customer number is known — avoids broken group thread_ids. */
+export function resolveOutboundSendTarget(thread: Thread): OutboundSendTarget {
+  if (thread.customer_e164) {
+    return { kind: 'to', toE164: thread.customer_e164 };
+  }
+
+  if (isDirectThread(thread)) {
+    return { kind: 'thread', threadId: thread.id };
+  }
+
+  return {
+    kind: 'unsupported',
+    reason: 'Group conversations are not supported in the mobile app yet.',
+  };
 }

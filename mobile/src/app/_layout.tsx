@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AuthProvider } from '@/lib/auth/auth-provider';
 import { useAuthRedirect } from '@/lib/auth/use-auth-redirect';
+import '@/lib/push/notifications';
 
 function AuthNavigationGuard() {
   useAuthRedirect();
