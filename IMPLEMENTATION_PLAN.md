@@ -14,7 +14,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-07-10 · **Current focus:** Phase 8 supporting screens — Contacts done; Profile / Settings / Help next
+**Last updated:** 2026-07-11 · **Current focus:** Phase 8 supporting screens — Contacts + Profile done; Settings / Help next
 
 | Phase | Name | Status |
 |-------|------|--------|
@@ -26,7 +26,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 | 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
 | 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
 | 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
-| 8 | Supporting screens | 🟡 ~40% — Contacts + compose `?to=` deep link; Profile/Settings/Help pending |
+| 8 | Supporting screens | 🟡 ~70% — Contacts + Profile done; Settings/Help pending |
 | 9 | EAS build & distribution | ⬜ Not started (Apple/Play deferred) |
 | 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS verified; full matrix pending |
 
@@ -447,8 +447,8 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 8.2.1 | Edit `display_name`, `phone_e164` via Supabase direct update. |
-| ⬜ | 8.2.2 | Email read-only; role display-only. |
+| ✅ | 8.2.1 | Edit `display_name`, `phone_e164` via Supabase direct update. | `update-profile.ts` + Profile screen |
+| ✅ | 8.2.2 | Email read-only; role display-only. |
 
 ### Step 8.3 — Settings
 
@@ -582,4 +582,4 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 ---
 
-*Plan version: 1.7 · Last progress update: 2026-07-10 · Target: first company TestFlight + Play closed testing · ~5 users*
+*Plan version: 1.8 · Last progress update: 2026-07-11 · Target: first company TestFlight + Play closed testing · ~5 users*
