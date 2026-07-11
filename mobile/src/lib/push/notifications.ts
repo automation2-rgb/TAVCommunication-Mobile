@@ -1,13 +1,19 @@
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { apiFetch } from '@/lib/api-client';
+import {
+  getCachedNotifySoundEnabled,
+  hydrateNotifySoundPreference,
+} from '@/lib/settings/local-preferences';
 
 export const PUSH_CHANNEL_ID = 'inbound-sms';
 const REGISTERED_TOKEN_KEY = 'tav_mobile_push_token_registered';
 
 export type PushPlatform = 'ios' | 'android';
+export type NotificationPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
 export type PushDeepLink = {
   inboxId: string;
@@ -16,6 +22,7 @@ export type PushDeepLink = {
 };
 
 let cachedDeviceToken: string | null = null;
+let soundPreferenceHydrated = false;
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -23,10 +30,19 @@ if (Platform.OS !== 'web') {
       shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: true,
+      shouldPlaySound: getCachedNotifySoundEnabled(),
       shouldSetBadge: true,
     }),
   });
+}
+
+async function ensureSoundPreferenceHydrated() {
+  if (soundPreferenceHydrated) {
+    return;
+  }
+
+  await hydrateNotifySoundPreference();
+  soundPreferenceHydrated = true;
 }
 
 export function isPushSupported() {
@@ -74,6 +90,37 @@ export async function requestPushPermission() {
   return (
     requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
   );
+}
+
+function mapPermissionResponse(
+  response: Notifications.NotificationPermissionsStatus,
+): NotificationPermissionStatus {
+  if (response.granted || response.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+    return 'granted';
+  }
+
+  if (response.status === Notifications.PermissionStatus.DENIED) {
+    return 'denied';
+  }
+
+  if (response.canAskAgain === false) {
+    return 'denied';
+  }
+
+  return 'undetermined';
+}
+
+export async function getNotificationPermissionStatus(): Promise<NotificationPermissionStatus> {
+  if (!isPushSupported()) {
+    return 'denied';
+  }
+
+  const current = await Notifications.getPermissionsAsync();
+  return mapPermissionResponse(current);
+}
+
+export async function openSystemNotificationSettings() {
+  await Linking.openSettings();
 }
 
 export function getPushPlatform(): PushPlatform {
@@ -152,6 +199,8 @@ export async function syncDevicePushRegistration() {
   if (!isPushSupported()) {
     return null;
   }
+
+  await ensureSoundPreferenceHydrated();
 
   const granted = await requestPushPermission();
   if (!granted) {

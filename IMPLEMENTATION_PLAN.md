@@ -14,7 +14,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-07-11 · **Current focus:** Phase 8 supporting screens — Contacts + Profile done; Settings / Help next
+**Last updated:** 2026-07-11 · **Current focus:** Phase 8 supporting screens — Contacts + Profile + Settings done; Help next
 
 | Phase | Name | Status |
 |-------|------|--------|
@@ -26,7 +26,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 | 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
 | 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
 | 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
-| 8 | Supporting screens | 🟡 ~70% — Contacts + Profile done; Settings/Help pending |
+| 8 | Supporting screens | 🟡 ~85% — Contacts + Profile + Settings done; Help pending |
 | 9 | EAS build & distribution | ⬜ Not started (Apple/Play deferred) |
 | 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS verified; full matrix pending |
 
@@ -454,8 +454,8 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 | Status | # | Rule |
 |--------|---|------|
-| ⬜ | 8.3.1 | v1 minimal: notification permission status + link to OS settings if denied. |
-| ⬜ | 8.3.2 | Optional: sound toggle stored in AsyncStorage (mirror `tav-sms:notify-sound`). |
+| ✅ | 8.3.1 | v1 minimal: notification permission status + link to OS settings if denied. | Settings screen + `getNotificationPermissionStatus` |
+| ✅ | 8.3.2 | Optional: sound toggle stored in AsyncStorage (mirror `tav-sms:notify-sound`). | `local-preferences.ts` + foreground handler |
 
 ### Step 8.4 — Help
 
@@ -582,4 +582,4 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 ---
 
-*Plan version: 1.8 · Last progress update: 2026-07-11 · Target: first company TestFlight + Play closed testing · ~5 users*
+*Plan version: 1.9 · Last progress update: 2026-07-11 · Target: first company TestFlight + Play closed testing · ~5 users*
