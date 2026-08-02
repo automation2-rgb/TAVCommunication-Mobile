@@ -3,7 +3,7 @@ import { File, Paths } from 'expo-file-system';
 
 
 import type { SendMessageFile } from '@/lib/api-client';
-import { MMS_MAX_BYTES, formatByteSize, normalizeMimeType } from '@/lib/messaging/mms-policy';
+import { formatByteSize, MMS_MAX_BYTES, normalizeMimeType } from '@/lib/messaging/mms-policy';
 
 
 
@@ -187,14 +187,14 @@ export async function prepareUploadFile(file: SendMessageFile): Promise<Prepared
     throw new Error(`Attachment ${name} is empty.`);
   }
 
-  if (source.size > MMS_MAX_BYTES) {
-    throw new Error(`Each file must be ${formatByteSize(MMS_MAX_BYTES)} or smaller.`);
-  }
-
   const mimeType =
     normalizeMimeType(file.type) ||
     normalizeMimeType(source.type) ||
     fallbackMimeType;
+
+  if (source.size > MMS_MAX_BYTES) {
+    throw new Error(`Each file must be ${formatByteSize(MMS_MAX_BYTES)} or smaller.`);
+  }
 
   const { uri, cleanup: stagingCleanup } = await resolveUploadUri(source, name);
 

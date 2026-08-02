@@ -2,6 +2,8 @@
 
 Browser-based calling via Twilio Programmable Voice — outbound from inbox threads, inbound ringing (pilot), and call history.
 
+> **Detailed / verified reference for mobile:** [`docs/calls-flow.md`](../docs/calls-flow.md) (Phase 12). Prefer that doc for API bodies, Device lifecycle, and native gaps; this file remains a shorter overview.
+
 ---
 
 ## Scope on master

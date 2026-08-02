@@ -164,6 +164,8 @@ export default function InboxListScreen() {
       <View style={styles.screen}>
         <InboxHeader
           inboxName="Inbox"
+          userDisplayName={profile?.display_name}
+          userEmail={profile?.email ?? session?.user.email}
           onOpenInboxSwitcher={() => {}}
           onOpenUserMenu={() => setMenuOpen(true)}
         />
@@ -181,6 +183,9 @@ export default function InboxListScreen() {
     <View style={styles.screen}>
       <InboxHeader
         inboxName={activeInbox?.display_name ?? 'Inbox'}
+        inboxUnreadCount={unreadCount}
+        userDisplayName={profile?.display_name}
+        userEmail={profile?.email ?? session?.user.email}
         onOpenInboxSwitcher={() => setSwitcherOpen(true)}
         onOpenUserMenu={() => setMenuOpen(true)}
         onCompose={() => {
@@ -222,7 +227,11 @@ export default function InboxListScreen() {
             />
           )}
           ListEmptyComponent={
-            <InboxEmptyState title={emptyCopy.title} description={emptyCopy.description} />
+            <InboxEmptyState
+              title={emptyCopy.title}
+              description={emptyCopy.description}
+              variant={emptyCopy.variant}
+            />
           }
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />}
           contentContainerStyle={threads.length === 0 ? styles.emptyList : undefined}
@@ -275,12 +284,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   errorBanner: {
-    backgroundColor: tavColors.red50,
-    paddingHorizontal: 16,
+    backgroundColor: tavColors.amber50,
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
   errorText: {
-    color: tavColors.red600,
+    color: tavColors.amber900,
     fontSize: 14,
   },
 });

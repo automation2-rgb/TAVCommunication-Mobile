@@ -2,8 +2,9 @@ import { Href, useRouter } from 'expo-router';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { formatMissedBadgeCount, useMissedCalls } from '@/contexts/missed-calls';
 import { signOut } from '@/lib/auth/sign-out';
-import { tavColors } from '@/lib/theme';
+import { pressScaleStyle, tavColors, tavShadows } from '@/lib/theme';
 
 type UserMenuSheetProps = {
   visible: boolean;
@@ -11,7 +12,8 @@ type UserMenuSheetProps = {
   onClose: () => void;
 };
 
-const MENU_ITEMS: Array<{ label: string; href: Href }> = [
+const MENU_ITEMS: Array<{ label: string; href: Href; showMissedBadge?: boolean }> = [
+  { label: 'Calls', href: '/(app)/calls' as Href, showMissedBadge: true },
   { label: 'Contacts', href: '/(app)/contacts' as Href },
   { label: 'Profile', href: '/(app)/profile' as Href },
   { label: 'Settings', href: '/(app)/settings' as Href },
@@ -21,6 +23,8 @@ const MENU_ITEMS: Array<{ label: string; href: Href }> = [
 export function UserMenuSheet({ visible, displayName, onClose }: UserMenuSheetProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { unseenMissedCount } = useMissedCalls();
+  const badgeLabel = formatMissedBadgeCount(unseenMissedCount);
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
@@ -35,8 +39,13 @@ export function UserMenuSheet({ visible, displayName, onClose }: UserMenuSheetPr
               onClose();
               router.push(item.href);
             }}
-            style={styles.row}>
+            style={({ pressed }) => [styles.row, pressScaleStyle(pressed)]}>
             <Text style={styles.rowLabel}>{item.label}</Text>
+            {item.showMissedBadge && badgeLabel ? (
+              <View style={styles.amberBadge}>
+                <Text style={styles.amberBadgeText}>{badgeLabel}</Text>
+              </View>
+            ) : null}
           </Pressable>
         ))}
         <Pressable
@@ -45,7 +54,7 @@ export function UserMenuSheet({ visible, displayName, onClose }: UserMenuSheetPr
             onClose();
             void signOut();
           }}
-          style={[styles.row, styles.signOutRow]}>
+          style={({ pressed }) => [styles.row, styles.signOutRow, pressScaleStyle(pressed)]}>
           <Text style={styles.signOutLabel}>Sign out</Text>
         </Pressable>
       </View>
@@ -66,35 +75,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tavColors.zinc200,
     paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    ...tavShadows.lg,
   },
   userName: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    color: tavColors.zinc500,
+    color: tavColors.zinc900,
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tavColors.zinc100,
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   rowLabel: {
     fontSize: 15,
-    color: tavColors.zinc900,
+    color: tavColors.zinc800,
+  },
+  amberBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: tavColors.amber100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  amberBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: tavColors.amber900,
   },
   signOutRow: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tavColors.zinc200,
+    borderTopColor: tavColors.zinc100,
     marginTop: 4,
   },
   signOutLabel: {
     fontSize: 15,
-    color: tavColors.red600,
     fontWeight: '500',
+    color: tavColors.red600,
   },
 });

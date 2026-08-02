@@ -1,12 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ContactAvatar } from '@/components/avatars/contact-avatar';
 import { isValidE164Phone } from '@/lib/phone/e164';
-import { tavColors } from '@/lib/theme';
+import { pressScaleStyle, tavColors } from '@/lib/theme';
 import type { ContactDirectoryRow } from '@/types/messaging';
 
 type ContactRowProps = {
   contact: ContactDirectoryRow;
-  /** Optional subtitle badge (e.g. role for team). */
   badge?: string | null;
   onPress: (contact: ContactDirectoryRow) => void;
 };
@@ -24,10 +24,13 @@ export function ContactRow({ contact, badge, onPress }: ContactRowProps) {
       onPress={() => {
         onPress(contact);
       }}
-      style={({ pressed }) => [styles.row, pressed && canMessage && styles.rowPressed, !canMessage && styles.rowDisabled]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials(title)}</Text>
-      </View>
+      style={({ pressed }) => [
+        styles.row,
+        pressed && canMessage && styles.rowPressed,
+        !canMessage && styles.rowDisabled,
+        canMessage && pressScaleStyle(pressed),
+      ]}>
+      <ContactAvatar displayName={contact.display_name} phoneE164={phone} size="md" />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text numberOfLines={1} style={styles.title}>
@@ -47,24 +50,17 @@ export function ContactRow({ contact, badge, onPress }: ContactRowProps) {
           <Text style={styles.noPhone}>No phone number</Text>
         )}
         {contact.tags && contact.tags.length > 0 ? (
-          <Text numberOfLines={1} style={styles.tags}>
-            {contact.tags.join(' · ')}
-          </Text>
+          <View style={styles.tagRow}>
+            {contact.tags.slice(0, 3).map((tag) => (
+              <View key={tag} style={styles.tagChip}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
         ) : null}
       </View>
     </Pressable>
   );
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return '?';
-  }
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 }
 
 const styles = StyleSheet.create({
@@ -79,23 +75,10 @@ const styles = StyleSheet.create({
     borderBottomColor: tavColors.zinc200,
   },
   rowPressed: {
-    backgroundColor: tavColors.zinc100,
+    backgroundColor: tavColors.zinc50,
   },
   rowDisabled: {
     opacity: 0.55,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: tavColors.zinc100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: tavColors.zinc700,
   },
   body: {
     flex: 1,
@@ -127,16 +110,27 @@ const styles = StyleSheet.create({
   },
   phone: {
     fontSize: 14,
-    color: tavColors.zinc600,
+    color: tavColors.zinc500,
   },
   noPhone: {
     fontSize: 13,
     color: tavColors.zinc400,
     fontStyle: 'italic',
   },
-  tags: {
-    fontSize: 12,
-    color: tavColors.zinc500,
-    marginTop: 2,
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  tagChip: {
+    borderRadius: 999,
+    backgroundColor: tavColors.zinc100,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tagText: {
+    fontSize: 11,
+    color: tavColors.zinc600,
   },
 });

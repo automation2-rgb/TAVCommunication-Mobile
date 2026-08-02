@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getAttachmentImageSource } from '@/lib/messaging/attachment-url';
-import { isImageMimeType } from '@/lib/messaging/mms-policy';
+import { isAudioMimeType, isImageMimeType } from '@/lib/messaging/mms-policy';
 import { tavColors } from '@/lib/theme';
 import type { MessageAttachment } from '@/types/messaging';
 
@@ -37,6 +37,7 @@ export function AttachmentThumbnail({ attachment, outbound = false, onPress }: A
   }, [attachment.content_type, attachment.id]);
 
   const label = attachment.filename?.trim() || 'Attachment';
+  const isAudio = isAudioMimeType(attachment.content_type);
 
   return (
     <Pressable onPress={onPress} style={[styles.tile, outbound && styles.tileOutbound]}>
@@ -50,7 +51,9 @@ export function AttachmentThumbnail({ attachment, outbound = false, onPress }: A
         )
       ) : (
         <View style={styles.fileFallback}>
-          <Text style={[styles.fileIcon, outbound && styles.fileIconOutbound]}>📎</Text>
+          <Text style={[styles.fileIcon, outbound && styles.fileIconOutbound]}>
+            {isAudio ? '♪' : '📎'}
+          </Text>
           <Text numberOfLines={2} style={[styles.fileLabel, outbound && styles.fileLabelOutbound]}>
             {label}
           </Text>

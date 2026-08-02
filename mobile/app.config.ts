@@ -12,10 +12,19 @@ export default {
     bundleIdentifier: 'com.texasautovalue.communication',
     googleServicesFile: './GoogleService-Info.plist',
     supportsTablet: false,
+    infoPlist: {
+      NSMicrophoneUsageDescription:
+        'Allow TAV Communication to use your microphone for voice calls with customers.',
+      UIBackgroundModes: ['audio', 'voip'],
+    },
+    entitlements: {
+      'aps-environment': 'development',
+    },
   },
   android: {
     package: 'com.texasautovalue.communication',
     googleServicesFile: './google-services.json',
+    permissions: ['RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'BLUETOOTH', 'BLUETOOTH_CONNECT'],
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -37,6 +46,13 @@ export default {
           'Allow TAV Communication to access your photos so you can attach images and videos to messages.',
         cameraPermission:
           'Allow TAV Communication to use your camera so you can take photos and videos for messages.',
+      },
+    ],
+    [
+      'expo-audio',
+      {
+        microphonePermission:
+          'Allow TAV Communication to use your microphone for voice calls with customers.',
       },
     ],
     [

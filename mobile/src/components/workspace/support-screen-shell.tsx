@@ -1,18 +1,16 @@
+import { ArrowLeft } from '@/components/icons/lucide';
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { tavColors, tavLayout } from '@/lib/theme';
+import { pressScaleStyle, tavColors, tavLayout } from '@/lib/theme';
 
 type SupportScreenShellProps = {
   title: string;
   children: ReactNode;
-  /** Override back action; defaults to router.back(). */
   onBack?: () => void;
-  /** Optional right-side header action. */
   headerRight?: ReactNode;
-  /** When false, content fills the screen (e.g. FlatList). Default true. */
   padded?: boolean;
 };
 
@@ -43,8 +41,9 @@ export function SupportScreenShell({
             }
             router.replace('/(app)/inbox');
           }}
-          style={styles.backButton}>
-          <Text style={styles.backText}>← Inbox</Text>
+          style={({ pressed }) => [styles.backButton, pressScaleStyle(pressed)]}>
+          <ArrowLeft color={tavColors.zinc700} size={18} strokeWidth={2.2} />
+          <Text style={styles.backText}>Inbox</Text>
         </Pressable>
         <Text numberOfLines={1} style={styles.title}>
           {title}
@@ -62,7 +61,7 @@ const styles = StyleSheet.create({
     backgroundColor: tavColors.zinc50,
   },
   header: {
-    height: tavLayout.headerHeight,
+    minHeight: tavLayout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -73,17 +72,20 @@ const styles = StyleSheet.create({
   },
   backButton: {
     minWidth: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   backText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    color: tavColors.blue,
+    color: tavColors.zinc700,
   },
   title: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
     color: tavColors.zinc900,
     textAlign: 'center',

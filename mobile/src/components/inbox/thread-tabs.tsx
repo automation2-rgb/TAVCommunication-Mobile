@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { tavColors } from '@/lib/theme';
+import { tavColors, tavShadows, tavTypography } from '@/lib/theme';
 import type { ThreadListTab } from '@/types/messaging';
 
 const TABS: Array<{ id: ThreadListTab; label: string }> = [
@@ -20,6 +20,8 @@ export function ThreadTabs({ activeTab, unreadCount, onChange }: ThreadTabsProps
     <View style={styles.container}>
       {TABS.map((tab) => {
         const selected = tab.id === activeTab;
+        const showUnreadCount = tab.id === 'unread' && unreadCount > 0;
+
         return (
           <Pressable
             key={tab.id}
@@ -28,13 +30,11 @@ export function ThreadTabs({ activeTab, unreadCount, onChange }: ThreadTabsProps
             onPress={() => {
               onChange(tab.id);
             }}
-            style={[styles.tab, selected && styles.tabSelected]}>
-            <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
-            {tab.id === 'unread' && unreadCount > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-              </View>
-            ) : null}
+            style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.tabPressed]}>
+            <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
+              {tab.label}
+              {showUnreadCount ? ` (${unreadCount > 99 ? '99+' : unreadCount})` : ''}
+            </Text>
           </Pressable>
         );
       })}
@@ -45,45 +45,37 @@ export function ThreadTabs({ activeTab, unreadCount, onChange }: ThreadTabsProps
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(228, 228, 231, 0.8)',
   },
   tab: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 8,
+  },
+  tabSelected: {
     backgroundColor: tavColors.white,
     borderWidth: 1,
     borderColor: tavColors.zinc200,
+    ...tavShadows.sm,
   },
-  tabSelected: {
-    backgroundColor: tavColors.zinc900,
-    borderColor: tavColors.zinc900,
+  tabPressed: {
+    opacity: 0.9,
   },
   tabLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: tavColors.zinc600,
+    textAlign: 'center',
   },
   tabLabelSelected: {
-    color: tavColors.white,
-  },
-  badge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: tavColors.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: tavColors.white,
+    color: tavColors.zinc900,
+    fontWeight: '600',
   },
 });

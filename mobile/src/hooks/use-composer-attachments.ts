@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 
 import {
   type ComposerFile,
+  canonicalizeMmsMimeType,
   defaultFilename,
   normalizeMimeType,
   validateComposerFiles,
@@ -18,11 +19,11 @@ type ImagePickerAsset = {
 
 type ImagePickerModule = typeof import('expo-image-picker');
 
-function isMissingNativeImagePicker(error: unknown) {
-  return error instanceof Error && error.message.includes('ExponentImagePicker');
+function isMissingNativeModule(error: unknown, needle: string) {
+  return error instanceof Error && error.message.includes(needle);
 }
 
-function showImagePickerUnavailableAlert() {
+function showRebuildAlert() {
   Alert.alert(
     'Attachments need a rebuild',
     'Photo attachments require a native rebuild of the dev client. Run: npx expo run:android (or run:ios), then reopen the app.',
@@ -30,8 +31,8 @@ function showImagePickerUnavailableAlert() {
 }
 
 function showPickerError(error: unknown) {
-  if (isMissingNativeImagePicker(error)) {
-    showImagePickerUnavailableAlert();
+  if (isMissingNativeModule(error, 'ExponentImagePicker')) {
+    showRebuildAlert();
     return;
   }
 
@@ -46,13 +47,14 @@ async function loadImagePicker(): Promise<ImagePickerModule> {
 }
 
 function assetToComposerFile(asset: ImagePickerAsset, index: number): ComposerFile {
-  const type = normalizeMimeType(asset.mimeType ?? 'image/jpeg');
+  const name = asset.fileName ?? defaultFilename(asset.uri, asset.mimeType ?? 'image/jpeg', index);
+  const type = canonicalizeMmsMimeType(asset.mimeType, name) || normalizeMimeType(asset.mimeType ?? 'image/jpeg');
   const size =
     typeof asset.fileSize === 'number' ? asset.fileSize : readComposerFileSize(asset.uri);
 
   return {
     uri: asset.uri,
-    name: asset.fileName ?? defaultFilename(asset.uri, type, index),
+    name,
     type,
     size,
   };

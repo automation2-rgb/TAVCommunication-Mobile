@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ContactAvatar } from '@/components/avatars/contact-avatar';
 import { formatRelativeTime } from '@/lib/format-time';
 import { formatThreadTitle } from '@/lib/messaging/threads';
 import { isThreadUnread } from '@/lib/messaging/unread';
-import { tavColors } from '@/lib/theme';
+import { tavColors, tavTypography } from '@/lib/theme';
 import type { Thread } from '@/types/messaging';
 
 type ThreadRowProps = {
@@ -13,17 +14,35 @@ type ThreadRowProps = {
   onLongPress: () => void;
 };
 
+function formatSnippet(thread: Thread): string {
+  const raw = thread.last_message_body?.trim() || 'No messages yet';
+  if (thread.last_message_direction === 'outbound') {
+    return `You: ${raw}`;
+  }
+  return raw;
+}
+
 export function ThreadRow({ thread, readAt, onPress, onLongPress }: ThreadRowProps) {
   const unread = isThreadUnread(thread, readAt);
   const title = formatThreadTitle(thread);
-  const snippet = thread.last_message_body?.trim() || 'No messages yet';
+  const snippet = formatSnippet(thread);
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       onLongPress={onLongPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+      style={({ pressed }) => [
+        styles.row,
+        unread && styles.rowUnread,
+        pressed && styles.rowPressed,
+      ]}>
+      <ContactAvatar
+        displayName={thread.display_name}
+        phoneE164={thread.customer_e164}
+        showUnreadDot={unread}
+        size="md"
+      />
       <View style={styles.content}>
         <View style={styles.topLine}>
           <Text style={[styles.title, unread && styles.titleUnread]} numberOfLines={1}>
@@ -31,12 +50,9 @@ export function ThreadRow({ thread, readAt, onPress, onLongPress }: ThreadRowPro
           </Text>
           <Text style={styles.timestamp}>{formatRelativeTime(thread.last_message_at)}</Text>
         </View>
-        <View style={styles.bottomLine}>
-          <Text style={[styles.snippet, unread && styles.snippetUnread]} numberOfLines={2}>
-            {snippet}
-          </Text>
-          {unread ? <View style={styles.unreadDot} /> : null}
-        </View>
+        <Text style={[styles.snippet, unread && styles.snippetUnread]} numberOfLines={2}>
+          {snippet}
+        </Text>
       </View>
     </Pressable>
   );
@@ -44,17 +60,27 @@ export function ThreadRow({ thread, readAt, onPress, onLongPress }: ThreadRowPro
 
 const styles = StyleSheet.create({
   row: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: tavColors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tavColors.zinc200,
+    borderBottomColor: tavColors.zinc50,
+  },
+  rowUnread: {
+    borderLeftWidth: 3,
+    borderLeftColor: tavColors.blue,
+    backgroundColor: 'rgba(244, 244, 245, 0.5)',
   },
   rowPressed: {
     backgroundColor: tavColors.zinc50,
   },
   content: {
-    gap: 4,
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
   topLine: {
     flexDirection: 'row',
@@ -63,36 +89,21 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
+    ...tavTypography.threadTitle,
     color: tavColors.zinc900,
   },
   titleUnread: {
-    fontWeight: '700',
+    ...tavTypography.threadTitleUnread,
   },
   timestamp: {
-    fontSize: 12,
+    ...tavTypography.meta,
     color: tavColors.zinc500,
   },
-  bottomLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   snippet: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: tavColors.zinc600,
+    ...tavTypography.threadSnippet,
   },
   snippetUnread: {
-    color: tavColors.zinc900,
-    fontWeight: '600',
-  },
-  unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: tavColors.blue,
+    fontWeight: '500',
+    color: tavColors.zinc800,
   },
 });

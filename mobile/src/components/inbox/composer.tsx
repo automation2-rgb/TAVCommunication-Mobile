@@ -1,3 +1,4 @@
+import { Paperclip, Send, X } from '@/components/icons/lucide';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useComposerAttachments } from '@/hooks/use-composer-attachments';
 import type { ComposerFile } from '@/lib/messaging/mms-policy';
 import { isImageMimeType } from '@/lib/messaging/mms-policy';
-import { tavColors, tavLayout } from '@/lib/theme';
+import { pressScaleStyle, tavColors, tavLayout, tavShadows, tavTypography } from '@/lib/theme';
 
 const BODY_MAX = 1600;
 
@@ -35,10 +36,13 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
   const insets = useSafeAreaInsets();
   const [body, setBody] = useState('');
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const { files, removeFile, clearFiles, pickFromLibrary, pickFromCamera } = useComposerAttachments();
 
   const trimmed = body.trim();
   const canSend = !disabled && !isSending && (trimmed.length > 0 || files.length > 0);
+  const overLimit = body.length > BODY_MAX;
+  const placeholder = files.length > 0 ? 'Caption (optional)…' : 'Type a message…';
 
   const handleSend = async () => {
     if (!canSend) {
@@ -59,7 +63,6 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
 
   const runPicker = (picker: () => Promise<void>) => {
     setAttachMenuOpen(false);
-    // Android needs the menu fully dismissed before launching the system picker.
     setTimeout(() => {
       void picker();
     }, 300);
@@ -77,7 +80,7 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
                 <Image contentFit="cover" source={{ uri: file.uri }} style={styles.previewImage} />
               ) : (
                 <View style={styles.previewFile}>
-                  <Text style={styles.previewFileIcon}>📎</Text>
+                  <Paperclip color={tavColors.zinc600} size={18} strokeWidth={2} />
                   <Text numberOfLines={2} style={styles.previewFileLabel}>
                     {file.name}
                   </Text>
@@ -88,45 +91,66 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
                 disabled={isSending}
                 onPress={() => removeFile(index)}
                 style={styles.removeButton}>
-                <Text style={styles.removeLabel}>×</Text>
+                <X color={tavColors.white} size={14} strokeWidth={2.5} />
               </Pressable>
             </View>
           ))}
         </ScrollView>
       ) : null}
 
-      <View style={styles.slab}>
+      <View style={[styles.slab, focused && styles.slabFocused]}>
         <Pressable
           accessibilityRole="button"
           disabled={disabled || isSending}
           onPress={() => setAttachMenuOpen(true)}
-          style={[styles.attachButton, (disabled || isSending) && styles.attachButtonDisabled]}>
-          <Text style={styles.attachLabel}>＋</Text>
+          style={({ pressed }) => [
+            styles.attachButton,
+            (disabled || isSending) && styles.attachButtonDisabled,
+            pressScaleStyle(pressed),
+          ]}>
+          <Paperclip color={tavColors.zinc600} size={20} strokeWidth={2.2} />
         </Pressable>
+
         <TextInput
           editable={!disabled && !isSending}
           multiline
-          maxLength={BODY_MAX}
-          placeholder="Message"
-          placeholderTextColor={tavColors.zinc500}
+          maxLength={BODY_MAX + 50}
+          placeholder={placeholder}
+          placeholderTextColor={tavColors.zinc400}
           style={styles.input}
           value={body}
           onChangeText={setBody}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
         />
+
         <Pressable
           accessibilityRole="button"
           disabled={!canSend}
           onPress={() => {
             void handleSend();
           }}
-          style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}>
+          style={({ pressed }) => [
+            styles.sendButton,
+            !canSend && styles.sendButtonDisabled,
+            pressScaleStyle(pressed),
+          ]}>
           {isSending ? (
             <ActivityIndicator color={tavColors.white} />
           ) : (
-            <Text style={styles.sendLabel}>↑</Text>
+            <Send color={tavColors.white} size={18} strokeWidth={2.4} />
           )}
         </Pressable>
       </View>
+
+      {!disabled ? (
+        <View style={styles.footerRow}>
+          <Text style={styles.hintText}>Send button to send · Enter for new line</Text>
+          {body.length > 0 ? (
+            <Text style={[styles.counter, overLimit && styles.counterOver]}>{body.length}/{BODY_MAX}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <Modal
         animationType="fade"
@@ -164,14 +188,15 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: tavColors.composerSlab,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tavColors.zinc200,
-    paddingTop: 10,
+    borderTopColor: 'rgba(228, 228, 231, 0.8)',
+    paddingTop: 12,
     paddingHorizontal: 12,
     gap: 8,
   },
   disabledHint: {
-    fontSize: 12,
+    fontSize: 14,
     color: tavColors.zinc500,
+    textAlign: 'center',
     paddingHorizontal: 4,
   },
   previewRow: {
@@ -183,7 +208,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: tavColors.white,
+    backgroundColor: tavColors.zinc50,
     borderWidth: 1,
     borderColor: tavColors.zinc200,
   },
@@ -197,9 +222,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 6,
     gap: 4,
-  },
-  previewFileIcon: {
-    fontSize: 18,
   },
   previewFileLabel: {
     fontSize: 10,
@@ -218,51 +240,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeLabel: {
-    color: tavColors.white,
-    fontSize: 16,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
   slab: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 4,
     backgroundColor: tavColors.white,
     borderRadius: tavLayout.composerRadius,
     borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingVertical: 6,
+    borderColor: 'rgba(228, 228, 231, 0.9)',
+    paddingLeft: 4,
+    paddingRight: 4,
+    paddingVertical: 4,
+    ...tavShadows.sm,
+  },
+  slabFocused: {
+    borderColor: tavColors.zinc300,
+    ...tavShadows.md,
   },
   attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: tavLayout.iconButtonSize,
+    height: tavLayout.iconButtonSize,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tavColors.zinc100,
-    marginBottom: 2,
+    marginBottom: 0,
   },
   attachButtonDisabled: {
     opacity: 0.45,
   },
-  attachLabel: {
-    fontSize: 22,
-    lineHeight: 24,
-    color: tavColors.zinc700,
-    fontWeight: '500',
-  },
   input: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 44,
     maxHeight: 120,
-    fontSize: 16,
-    lineHeight: 22,
+    ...tavTypography.composerInput,
     color: tavColors.zinc900,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   sendButton: {
     width: tavLayout.sendButtonSize,
@@ -273,18 +286,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    opacity: 0.45,
+    backgroundColor: tavColors.zinc300,
+    opacity: 1,
   },
-  sendLabel: {
-    color: tavColors.white,
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: -2,
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    color: tavColors.zinc400,
+    flex: 1,
+  },
+  counter: {
+    fontSize: 12,
+    color: tavColors.zinc400,
+  },
+  counterOver: {
+    color: tavColors.red600,
+    fontWeight: '600',
   },
   menuBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(9, 9, 11, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   menuSheet: {
     backgroundColor: tavColors.white,
@@ -293,9 +320,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     gap: 8,
+    ...tavShadows.lg,
   },
   menuTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: tavColors.zinc900,
     marginBottom: 4,

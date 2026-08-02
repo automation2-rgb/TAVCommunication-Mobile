@@ -14,21 +14,23 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-07-11 · **Current focus:** Phase 8 complete — Phase 9 EAS when Apple/Play credentials ready
+**Last updated:** 2026-07-20 · **Current focus:** Phase 12 voice device QA; mobile UI aligned to web design docs
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Prerequisites | 🟡 ~85% — Apple/Play deferred |
 | 1 | Backend (Vercel) | ✅ Done — Bearer, push register, FCM dispatch (`after()`), Firebase env verified |
-| 2 | Project scaffold | 🟡 ~90% — push wired; Geist fonts deferred |
+| 2 | Project scaffold | 🟡 ~95% — web design parity pass; Geist fonts deferred |
 | 3 | Authentication | ✅ Done — Google sign-in verified on Android dev build |
 | 4 | Data layer | ✅ Done — libs + hooks; inbox E2E verified |
 | 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
 | 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
 | 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
-| 8 | Supporting screens | ✅ Done — Contacts, Profile, Settings, Help |
+| 8 | Supporting screens | ✅ Done — Contacts, Profile, Settings, Help verified on Android emulator 2026-07-15 |
 | 9 | EAS build & distribution | ⬜ Not started (Apple/Play deferred) |
-| 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS verified; full matrix pending |
+| 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS + supporting screens verified; full matrix pending |
+| 11 | Voice messaging | ⏸ Deferred — not shipping on mobile (carrier MMS audio arrives as link; web has no inbox recorder) |
+| 12 | Voice calls | 🟡 Partial — outbound + Calls screen + missed badge in code; inbound deferred; native rebuild + device QA pending |
 
 **Status legend:** ✅ Done · 🟡 Partial · ⏸ Deferred · ⬜ Not started
 
@@ -222,10 +224,10 @@ mobile/
 
 | Status | # | Rule |
 |--------|---|------|
-| 🟡 | 2.4.1 | Port CSS tokens from docs: bubble colors, composer slab, zinc palette. | `lib/theme.ts` messaging tokens |
-| 🟡 | 2.4.2 | Bubble: outbound right blue, inbound left gray, `text-base leading-relaxed`. | `message-bubble.tsx` |
-| 🟡 | 2.4.3 | Composer: pill shape, send button 40×40 circle. | `composer.tsx` |
-| ⬜ | 2.4.4 | Reference: `ui/workspace-layout-and-navigation.md`, `ui/modals-empty-states-and-overlays.md`. |
+| ✅ | 2.4.1 | Port CSS tokens from docs: bubble colors, composer slab, zinc palette. | `lib/theme.ts` + `docs/web-design-flow.md` |
+| ✅ | 2.4.2 | Bubble: outbound gradient blue, inbound gray, asymmetric radii, timestamps. | `message-bubble.tsx` |
+| ✅ | 2.4.3 | Composer: pill shape, Lucide attach/send, hint + char counter. | `composer.tsx` |
+| ✅ | 2.4.4 | Reference: `docs/web-design-flow.md`, `docs/mobile-first-layout.md`. | avatars, inbox tiles, segmented tabs |
 
 ### Step 2.5 — EAS profiles (`eas.json`)
 
@@ -455,7 +457,7 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 | Status | # | Rule |
 |--------|---|------|
 | ✅ | 8.3.1 | v1 minimal: notification permission status + link to OS settings if denied. | Settings screen + `getNotificationPermissionStatus` |
-| ✅ | 8.3.2 | Optional: sound toggle stored in AsyncStorage (mirror `tav-sms:notify-sound`). | `local-preferences.ts` + foreground handler |
+| ✅ | 8.3.2 | Optional: sound toggle stored in AsyncStorage (mirror `tav-sms:notify-sound`). | `local-preferences.ts` + foreground handler — TEMP in-memory until next native rebuild links AsyncStorage |
 
 ### Step 8.4 — Help
 
@@ -463,7 +465,7 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 |--------|---|------|
 | ✅ | 8.4.1 | Static help content matching web `/help` topics (can be simplified markdown in app). | `topics.ts` + Help screen |
 
-**Gate:** All v1 screens navigable; contacts → new message flow works.
+**Gate:** ✅ All v1 screens navigable; contacts → new message flow works — Android emulator verified 2026-07-15.
 
 ---
 
@@ -534,16 +536,107 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 
 ---
 
+## Phase 11 — Voice messaging ⏸ Deferred (mobile v1)
+
+**Not shipping on mobile.** Inbox MMS audio often arrives on customer phones as a carrier `p.twil.io` link instead of inline audio; production web also has no inbox mic recorder (attach-only on web, unused in practice).
+
+**Removed from mobile app (2026-07-19):** mic recorder, audio file attach, inline audio player, `expo-audio` / `expo-document-picker`.
+
+**Still supported in app:** view/open **inbound** customer audio MMS as a filename tile (open externally) — same as other non-image attachments.
+
+**Future (post-v1):** internal chat voice notes (Part B) only if chat baseline ships; inbox outbound audio not planned. Spec retained for reference: [`docs/voice-messaging-sending-flow.md`](./docs/voice-messaging-sending-flow.md).
+
+---
+
+## Phase 12 — Voice calls (Twilio Programmable Voice)
+
+**Spec:** [`docs/calls-flow.md`](./docs/calls-flow.md)  
+**Skeleton:** [`flows/08-voice-calls.md`](./flows/08-voice-calls.md)  
+**Not this phase:** chat voice notes / inbox MMS audio → Phase 11.
+
+Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound`, `/answered`, missed-count). Twilio webhooks stay signature-only.
+
+**Ship order:** outbound-only first → call history + missed badge → inbound (CallKit / ConnectionService) last.
+
+### Step 12.0 — Prerequisites
+
+| Status | # | Rule |
+|--------|---|------|
+| ✅ | 12.0.1 | Spec captured in `docs/calls-flow.md` (web master verified, incl. voice on all Twilio-number inboxes in code). |
+| ✅ | 12.0.2 | Voice client APIs support Bearer — same pattern as SMS mobile. |
+| ✅ | 12.0.3 | Smoke-test with mobile session token: `GET /api/voice/token` → 200 `{ token, identity, expiresIn }`. | `voice-api.ts` — device verify pending |
+| ✅ | 12.0.4 | Smoke-test: `POST /api/voice/outbound` with Bearer + valid direct thread → `{ connectParams }`. | `voice-api.ts` — device verify pending |
+| ✅ | 12.0.5 | Ops: confirm which numbers have Voice URL + status callbacks pointed at app (pilot `+17435000019` intended; other lines may still be Twilio demo URL). | **Updated:** all prod numbers point at app inbound + status |
+| 🟡 | 12.0.6 | Dev client only — Twilio Voice React Native (or equivalent) requires native modules; not Expo Go. | `@twilio/voice-react-native-sdk@2.0.0-preview.2` + `expo-av`; **rebuild dev client required** |
+
+### Step 12.1 — Native Voice client + token lifecycle
+
+| Status | # | Rule |
+|--------|---|------|
+| 🟡 | 12.1.1 | Add Twilio Voice RN SDK via Expo config plugin / dev client rebuild. | SDK installed; iOS mic/voip + Android RECORD_AUDIO in `app.config.ts` |
+| 🟡 | 12.1.2 | `lib/voice/`: mint token via Bearer `GET/POST /api/voice/token`; register Client with **32-hex identity** (UUID without hyphens) — must match web for inbound later. | `voice-api.ts` + `VoiceClientProvider` — outbound uses `voice.connect(token)` (no register in v1) |
+| ✅ | 12.1.3 | **Token refresh before `expiresIn` (3600)** — do not copy web’s no-refresh gap. | refresh timer in `voice-client.tsx` |
+| ✅ | 12.1.4 | Mic permission prompts + privacy strings in `app.config.ts`; gate Call UI when denied/unsupported. | `microphone-permission.ts` + header Call gate |
+| ✅ | 12.1.5 | Call phases: `uninitialized` → `initializing` → `ready` \| `connecting` \| `in-call` \| `error` (+ `incoming` when Part B ships). | `VoiceClientProvider` |
+| ✅ | 12.1.6 | One active call — second outbound throws; second inbound auto-reject (parity). | guarded in `placeOutboundCall` |
+
+### Step 12.2 — Outbound from 1:1 thread (first ship)
+
+| Status | # | Rule |
+|--------|---|------|
+| 🟡 | 12.2.1 | Show Call control only when: `thread_kind === "direct"`, `customer_e164` present, inbox has `twilio_phone_e164`. | `voice-enabled.ts` + thread header |
+| 🟡 | 12.2.2 | Sequence: ensure Device ready → `POST /api/voice/outbound` `{ thread_id, inbox_id, customer_e164 }` → `device.connect(connectParams)`. | `VoiceClientProvider` — device QA pending |
+| ✅ | 12.2.3 | In-call UI: elapsed timer, mute/unmute, hang up (no DTMF / transfer / hold in v1). | `InCallOverlay` |
+| ✅ | 12.2.4 | Map API error strings to toasts (group thread, history-only inbox, forbidden, invalid E.164, etc.). | `VoiceApiError` + Alerts |
+| ⬜ | 12.2.5 | Device QA: outbound from Transportation QA (or any voice-enabled inbox) reaches real PSTN; `call_logs` shows outbound row; hang up completes cleanly. |
+
+### Step 12.3 — Call history + missed badge
+
+| Status | # | Rule |
+|--------|---|------|
+| ✅ | 12.3.1 | Calls screen: list up to 200 `call_logs` (RLS / approved access); columns parity — when, inbox, direction, contact, agent, status, duration, thread link. | `/(app)/calls` + `CallLogRow` |
+| ✅ | 12.3.2 | Deep link row → `/inbox` with `inbox` + `thread` when `thread_id` set. | row opens `/(app)/inbox/[threadId]` |
+| ✅ | 12.3.3 | Missed badge: poll `GET /api/dev-console/voice-pilot/missed-count?since=` (~90s + on foreground). | `MissedCallsProvider` |
+| ✅ | 12.3.4 | Persist last-seen (`tav-voice:calls-last-seen-at`) in AsyncStorage/SecureStore; write when opening Calls screen. | `calls-last-seen.ts` |
+| ✅ | 12.3.5 | Highlight missed inbound (`missed` \| `no-answer` \| `busy`); nav entry from user menu (skip assignments admin UI on mobile). | amber row + menu badge |
+
+### Step 12.4 — Inbound ringing (follow-on)
+
+| Status | # | Rule |
+|--------|---|------|
+| ⏸ | 12.4.1 | Global Voice registration while approved + assigned (not only while inbox screen mounted). |
+| ⏸ | 12.4.2 | Push wake + **CallKit** (iOS) / **ConnectionService** (Android) for background/killed inbound. |
+| ⏸ | 12.4.3 | Incoming UI: Accept / Decline + mic warning; on Accept → `call.accept()` + `POST /api/voice/answered` `{ call_sid }`. |
+| ⏸ | 12.4.4 | User must be in `inbox_call_assignments` for that inbox or answered returns 403. |
+| ⏸ | 12.4.5 | Device QA on pilot line with assignees: simultaneous ring, accept, decline, timeout → missed log. |
+
+### Step 12.5 — Calls QA gate
+
+| Status | # | Test | Pass criteria |
+|--------|---|------|---------------|
+| ⬜ | 12.5.1 | Token + register | Bearer token mints; Device reaches `ready` | API client ready; SDK connect on device pending |
+| ⬜ | 12.5.2 | Outbound 1:1 | Customer phone rings; callerId = inbox number |
+| ⬜ | 12.5.3 | Mute / hang up | Audio + disconnect work; log completes |
+| ⬜ | 12.5.4 | Gates | No Call on group / history-only / mic denied |
+| ⬜ | 12.5.5 | History + badge | Logs visible; missed count updates after unseen inbound |
+| ⏸ | 12.5.6 | Inbound (when 12.4 done) | Ring when app backgrounded; accept connects |
+| ⬜ | 12.5.7 | Android + iOS | Outbound (+ history) on both platforms |
+
+**Gate:** Outbound + history/badge verified on device. Inbound deferred until CallKit/ConnectionService work lands. Assignments admin stays on web.
+
+---
+
 ## Post-v1 backlog (ordered)
 
 1. Group messaging (app_group + native MMS)
 2. Global search + snippets
 3. Conversation side panel / custom fields
 4. Full contacts CRUD + bundles
-5. Internal chat (`/chat`)
-6. Voice / calls
-7. Bug report modal
-8. Dev console (operators — low priority on mobile)
+5. Internal chat (`/chat`) — **required before Phase 11 Part B**; may land as Phase 11.3
+6. Voice messaging (inbox MMS audio + chat voice notes) — ⏸ deferred on mobile; see Phase 11 note
+7. ~~Voice calls~~ → **Phase 12** (outbound first; inbound = 12.4)
+8. Bug report modal
+9. Dev console (operators — low priority on mobile)
 
 ---
 
@@ -559,6 +652,8 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 | ⏸ | Google Android client ID | Supabase + Google Cloud |
 | ✅ | Firebase config files | EAS + mobile native |
 | ✅ | `FIREBASE_SERVICE_ACCOUNT_JSON` | Vercel (push send) — verified prod 2026-07-09 |
+| ✅ | Twilio Voice env (`TWILIO_API_KEY_*`, `TWILIO_TWIML_APP_SID`, …) | Vercel only — see `docs/calls-flow.md` |
+| 🟡 | `@twilio/voice-react-native-sdk@2.0.0-preview.2` | Mobile outbound Voice — dev client rebuild required |
 | ⏸ | Apple Team ID | EAS iOS builds |
 | ⏸ | Play service account JSON | EAS submit (optional) |
 
@@ -579,7 +674,11 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 | Contacts | `flows/04-contacts-directory.md` |
 | Profile / settings | `flows/05-team-profile-settings-help.md` |
 | Backend spec | `docs/backend-spec-v1.md` |
+| Voice messaging (A + B) | `docs/voice-messaging-sending-flow.md` |
+| Voice calls (detailed) | `docs/calls-flow.md` |
+| Voice calls (skeleton) | `flows/08-voice-calls.md` |
+| Internal chat | `flows/09-internal-chat.md` |
 
 ---
 
-*Plan version: 1.10 · Last progress update: 2026-07-11 · Target: first company TestFlight + Play closed testing · ~5 users*
+*Plan version: 1.16 · Last progress update: 2026-07-19 · Target: first company TestFlight + Play closed testing · ~5 users*

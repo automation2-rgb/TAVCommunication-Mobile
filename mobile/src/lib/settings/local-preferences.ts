@@ -1,4 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * Notify-sound preference helpers.
+ *
+ * TEMP: In-memory only (no AsyncStorage) so the existing native APK can load
+ * Metro JS without a rebuild. Restore `@react-native-async-storage/async-storage`
+ * persistence after the next native build that links that module.
+ */
 
 /** Mirrors web localStorage key for inbound notification sound. */
 export const NOTIFY_SOUND_STORAGE_KEY = 'tav-sms:notify-sound';
@@ -12,28 +18,14 @@ export function getCachedNotifySoundEnabled() {
 }
 
 export async function getNotifySoundEnabled(): Promise<boolean> {
-  try {
-    const raw = await AsyncStorage.getItem(NOTIFY_SOUND_STORAGE_KEY);
-    if (raw === null) {
-      cachedNotifySoundEnabled = DEFAULT_NOTIFY_SOUND_ENABLED;
-      return DEFAULT_NOTIFY_SOUND_ENABLED;
-    }
-
-    const enabled = raw !== 'false';
-    cachedNotifySoundEnabled = enabled;
-    return enabled;
-  } catch {
-    return getCachedNotifySoundEnabled();
+  if (cachedNotifySoundEnabled === null) {
+    cachedNotifySoundEnabled = DEFAULT_NOTIFY_SOUND_ENABLED;
   }
+  return cachedNotifySoundEnabled;
 }
 
 export async function setNotifySoundEnabled(enabled: boolean): Promise<void> {
   cachedNotifySoundEnabled = enabled;
-  try {
-    await AsyncStorage.setItem(NOTIFY_SOUND_STORAGE_KEY, enabled ? 'true' : 'false');
-  } catch {
-    // Preference stays in memory for this session if persistence fails.
-  }
 }
 
 /** Warm the in-memory cache used by the notification handler. */

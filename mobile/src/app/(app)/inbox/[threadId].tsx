@@ -6,7 +6,10 @@ import { Composer, type ComposerSendPayload } from '@/components/inbox/composer'
 import { ConversationHeader } from '@/components/inbox/conversation-header';
 import { EditDisplayNameModal } from '@/components/inbox/edit-display-name-modal';
 import { MessageList } from '@/components/inbox/message-list';
+import { InCallOverlay } from '@/components/voice/in-call-overlay';
+import { ThreadVoiceCallControls } from '@/components/voice/thread-voice-call-controls';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { useVoiceClient } from '@/contexts/voice-client';
 import { useThreadMessages } from '@/hooks/use-thread-messages';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -16,6 +19,7 @@ import {
   type PendingAttachmentPreview,
 } from '@/lib/messaging/send-message';
 import { fetchThreadById, formatThreadTitle, resolveOutboundSendTarget } from '@/lib/messaging/threads';
+import { canPlaceThreadVoiceCall } from '@/lib/voice/voice-enabled';
 import { markThreadDone, reopenThread } from '@/lib/messaging/thread-archive';
 import { markThreadUnread, upsertThreadRead, fetchThreadReads } from '@/lib/messaging/thread-reads';
 import { updateThreadDisplayName } from '@/lib/messaging/update-thread';
@@ -30,6 +34,7 @@ export default function ConversationScreen() {
   const { session, profile } = useAuth();
   const userId = session?.user.id;
   const { activeInbox } = useInboxWorkspace();
+  const { placeOutboundCall, ensureReady } = useVoiceClient();
 
   const [thread, setThread] = useState<Thread | null>(null);
   const [readAt, setReadAt] = useState<string | null>(null);
@@ -78,7 +83,9 @@ export default function ConversationScreen() {
   const mergedMessages = useMemo(() => localMessages, [localMessages]);
 
   const canSend = Boolean(activeInbox?.twilio_phone_e164);
+  const canCall = canPlaceThreadVoiceCall(thread, activeInbox);
   const isDone = Boolean(thread?.archived_at);
+  const contactLabel = thread ? formatThreadTitle(thread) : 'Customer';
 
   const handleSend = useCallback(
     async ({ body, files }: ComposerSendPayload) => {
@@ -174,6 +181,20 @@ export default function ConversationScreen() {
     [activeInbox?.id, router, thread, threadId, userId],
   );
 
+  const handlePlaceCall = useCallback(async () => {
+    if (!thread || !activeInbox?.id || !thread.customer_e164) {
+      return;
+    }
+
+    await ensureReady();
+    await placeOutboundCall({
+      threadId: thread.id,
+      inboxId: activeInbox.id,
+      customerE164: thread.customer_e164,
+      contactLabel,
+    });
+  }, [activeInbox?.id, contactLabel, ensureReady, placeOutboundCall, thread]);
+
   const openOverflowMenu = useCallback(() => {
     if (!thread || !userId) {
       return;
@@ -232,6 +253,7 @@ export default function ConversationScreen() {
       <ConversationHeader
         title={thread ? formatThreadTitle(thread) : 'Conversation'}
         subtitle={thread?.customer_e164 ?? undefined}
+        phoneE164={thread?.customer_e164}
         isDone={isDone}
         onBack={() => {
           router.back();
@@ -240,7 +262,12 @@ export default function ConversationScreen() {
           void toggleDone();
         }}
         onOpenMenu={openOverflowMenu}
+        voiceControls={
+          canCall ? <ThreadVoiceCallControls onCall={handlePlaceCall} /> : undefined
+        }
       />
+
+      <InCallOverlay contactLabel={contactLabel} />
 
       <View style={styles.messagesPane}>
         <MessageList

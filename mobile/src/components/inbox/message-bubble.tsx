@@ -1,13 +1,21 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { AttachmentLightbox } from '@/components/inbox/attachment-lightbox';
 import { AttachmentThumbnail } from '@/components/inbox/attachment-thumbnail';
 import { MessageStatusIcon } from '@/components/inbox/message-status-icon';
+import { formatMessageTime } from '@/lib/format-time';
 import type { PendingAttachmentPreview } from '@/lib/messaging/send-message';
 import { isImageMimeType } from '@/lib/messaging/mms-policy';
-import { tavColors, tavLayout } from '@/lib/theme';
+import {
+  inboundBubbleRadii,
+  outboundBubbleRadii,
+  tavColors,
+  tavLayout,
+  tavTypography,
+} from '@/lib/theme';
 import type { Message, MessageAttachment } from '@/types/messaging';
 
 type MessageBubbleProps = {
@@ -15,6 +23,7 @@ type MessageBubbleProps = {
   attachments?: MessageAttachment[];
   pendingAttachments?: PendingAttachmentPreview[];
   isSelf: boolean;
+  compactTop?: boolean;
 };
 
 function PendingAttachmentThumbnail({
@@ -47,11 +56,13 @@ export function MessageBubble({
   attachments = [],
   pendingAttachments = [],
   isSelf,
+  compactTop = false,
 }: MessageBubbleProps) {
   const outbound = message.direction === 'outbound';
   const body = message.body?.trim() || '';
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const timeLabel = formatMessageTime(message.created_at);
 
   const sortedAttachments = useMemo(
     () => [...attachments].sort((a, b) => a.id.localeCompare(b.id)),
@@ -59,48 +70,83 @@ export function MessageBubble({
   );
 
   const showPending = sortedAttachments.length === 0 && pendingAttachments.length > 0;
+  const failed = ['failed', 'undelivered'].includes(String(message.status).toLowerCase());
+
+  const bubbleContent = (
+    <>
+      {body ? <Text style={[styles.body, outbound && styles.bodyOutbound]}>{body}</Text> : null}
+
+      {sortedAttachments.length > 0 ? (
+        <View style={styles.attachmentGrid}>
+          {sortedAttachments.map((attachment, index) => (
+            <AttachmentThumbnail
+              key={attachment.id}
+              attachment={attachment}
+              outbound={outbound}
+              onPress={() => {
+                setLightboxIndex(index);
+                setLightboxOpen(true);
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {showPending ? (
+        <View style={styles.attachmentGrid}>
+          {pendingAttachments.map((attachment) => (
+            <PendingAttachmentThumbnail key={attachment.id} attachment={attachment} outbound={outbound} />
+          ))}
+        </View>
+      ) : null}
+
+      {outbound ? (
+        <View style={styles.metaRow}>
+          <MessageStatusIcon status={message.status} outbound />
+          {timeLabel ? <Text style={styles.outboundTime}>{timeLabel}</Text> : null}
+        </View>
+      ) : null}
+    </>
+  );
 
   return (
     <>
-      <View style={[styles.row, outbound ? styles.rowOutbound : styles.rowInbound]}>
-        <View style={[styles.bubble, outbound ? styles.bubbleOutbound : styles.bubbleInbound]}>
-          {body ? <Text style={[styles.body, outbound && styles.bodyOutbound]}>{body}</Text> : null}
-
-          {sortedAttachments.length > 0 ? (
-            <View style={styles.attachmentGrid}>
-              {sortedAttachments.map((attachment, index) => (
-                <AttachmentThumbnail
-                  key={attachment.id}
-                  attachment={attachment}
-                  outbound={outbound}
-                  onPress={() => {
-                    setLightboxIndex(index);
-                    setLightboxOpen(true);
-                  }}
-                />
-              ))}
-            </View>
-          ) : null}
-
-          {showPending ? (
-            <View style={styles.attachmentGrid}>
-              {pendingAttachments.map((attachment) => (
-                <PendingAttachmentThumbnail
-                  key={attachment.id}
-                  attachment={attachment}
-                  outbound={outbound}
-                />
-              ))}
-            </View>
-          ) : null}
-
-          {outbound ? (
-            <View style={styles.metaRow}>
-              <MessageStatusIcon status={message.status} />
-            </View>
-          ) : null}
-        </View>
+      <View
+        style={[
+          styles.row,
+          outbound ? styles.rowOutbound : styles.rowInbound,
+          compactTop && styles.rowCompactTop,
+        ]}>
+        {outbound ? (
+          <LinearGradient
+            colors={[
+              tavColors.bubbleOutGradientTop,
+              tavColors.bubbleOutGradientMid,
+              tavColors.bubbleOutGradientBottom,
+            ]}
+            locations={[0, 0.42, 1]}
+            style={[
+              styles.bubble,
+              outboundBubbleRadii(),
+              failed && styles.bubbleFailed,
+              { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
+            ]}>
+            {bubbleContent}
+          </LinearGradient>
+        ) : (
+          <View
+            style={[
+              styles.bubble,
+              styles.bubbleInbound,
+              inboundBubbleRadii(),
+              { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
+            ]}>
+            {bubbleContent}
+          </View>
+        )}
       </View>
+
+      {!outbound && timeLabel ? <Text style={styles.inboundTime}>{timeLabel}</Text> : null}
 
       <AttachmentLightbox
         attachments={sortedAttachments}
@@ -114,8 +160,11 @@ export function MessageBubble({
 
 const styles = StyleSheet.create({
   row: {
-    paddingHorizontal: 12,
-    paddingVertical: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
+  rowCompactTop: {
+    marginTop: -2,
   },
   rowOutbound: {
     alignItems: 'flex-end',
@@ -124,22 +173,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bubble: {
-    maxWidth: '82%',
-    borderRadius: tavLayout.bubbleRadius,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
   },
-  bubbleOutbound: {
-    backgroundColor: tavColors.bubbleOut,
-  },
   bubbleInbound: {
     backgroundColor: tavColors.bubbleIn,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  bubbleFailed: {
+    borderWidth: 2,
+    borderColor: tavColors.red600,
   },
   body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: tavColors.zinc900,
+    ...tavTypography.messageBody,
+    color: tavColors.black,
   },
   bodyOutbound: {
     color: tavColors.white,
@@ -151,7 +205,23 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'flex-end',
+    gap: 6,
+    marginTop: 2,
+  },
+  outboundTime: {
+    fontSize: 10,
+    lineHeight: 12,
+    color: tavColors.bubbleOutDim,
+  },
+  inboundTime: {
+    fontSize: 10,
+    lineHeight: 12,
+    color: tavColors.zinc400,
+    paddingLeft: 18,
+    marginTop: 2,
+    marginBottom: 4,
   },
   pendingTile: {
     width: 132,
