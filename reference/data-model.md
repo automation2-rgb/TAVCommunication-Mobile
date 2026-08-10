@@ -43,6 +43,7 @@ Extends Supabase Auth users.
 | `email` | From Google; read-only in profile UI |
 | `display_name` | User-editable |
 | `phone_e164` | User mobile; used for teammate SMS and voice |
+| `avatar_storage_path` | Optional profile photo path in `profile-avatars` Storage bucket |
 | `role` | `admin` or `member` |
 | `approval_status` | `pending`, `approved`, `rejected` |
 | `onboarding_submitted_at` | When access request form submitted |

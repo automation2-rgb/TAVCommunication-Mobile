@@ -9,7 +9,7 @@ export default function HelpScreen() {
   const router = useRouter();
 
   return (
-    <SupportScreenShell title="Help" padded={false}>
+    <SupportScreenShell title="Help" padded={false} showBack backLabel="Profile">
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.intro}>
           Quick reference for messaging, notifications, and account screens in TAV Communication.

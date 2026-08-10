@@ -1,140 +1,134 @@
-import { Href, useRouter } from 'expo-router';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ContactAvatar } from '@/components/avatars/contact-avatar';
 import {
-  callStatusColors,
-  formatCallStatusLabel,
-  isMissedInboundStatus,
-} from '@/lib/voice/call-log-status';
-import { formatCallDuration } from '@/lib/voice/format-voice';
-import { formatRelativeTime } from '@/lib/format-time';
-import { tavColors } from '@/lib/theme';
+  ArrowDownLeft,
+  ArrowUpRight,
+  Info,
+  PhoneMissed,
+  type LucideIcon,
+} from '@/components/icons/lucide';
+import { formatCallListTimestamp } from '@/lib/format-time';
+import { getCallContactLabel, getCallDirectionLabel } from '@/lib/voice/call-contact-label';
+import { isMissedInboundStatus } from '@/lib/voice/call-log-status';
+import { pressScaleStyle, tavColors } from '@/lib/theme';
 import type { CallLog } from '@/types/voice';
 
 type CallLogRowProps = {
   call: CallLog;
+  onPressInfo: (call: CallLog) => void;
+  onPressCall?: (call: CallLog) => void;
 };
 
-export function CallLogRow({ call }: CallLogRowProps) {
-  const router = useRouter();
-  const statusStyle = callStatusColors(call.status, call.direction);
+function DirectionIcon({ missed, direction }: { missed: boolean; direction: CallLog['direction'] }) {
+  let Icon: LucideIcon = direction === 'inbound' ? ArrowDownLeft : ArrowUpRight;
+  if (missed) {
+    Icon = PhoneMissed;
+  }
+
+  const color = missed ? tavColors.red600 : tavColors.zinc500;
+
+  return <Icon color={color} size={14} strokeWidth={2.4} />;
+}
+
+export const CallLogRow = memo(function CallLogRow({
+  call,
+  onPressInfo,
+  onPressCall,
+}: CallLogRowProps) {
   const missed = call.direction === 'inbound' && isMissedInboundStatus(call.status);
-
-  const openThread = () => {
-    if (!call.thread_id) {
-      return;
-    }
-
-    router.push(`/(app)/inbox/${call.thread_id}?inbox=${call.inbox_id}` as Href);
-  };
+  const contactLabel = getCallContactLabel(call);
+  const directionLabel = getCallDirectionLabel(call, missed);
 
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={!call.thread_id}
-      onPress={openThread}
-      style={[styles.card, missed && styles.missedCard]}>
-      <View style={styles.topRow}>
-        <Text style={styles.when}>{formatRelativeTime(call.started_at)}</Text>
-        <View style={[styles.statusPill, { backgroundColor: statusStyle.backgroundColor }]}>
-          <Text style={[styles.statusText, { color: statusStyle.color }]}>
-            {formatCallStatusLabel(call.status)}
-          </Text>
+      delayPressIn={100}
+      disabled={!onPressCall}
+      onPress={() => onPressCall?.(call)}
+      style={({ pressed }) => [styles.row, pressed && onPressCall && styles.rowPressed]}>
+      <ContactAvatar displayName={contactLabel} phoneE164={call.customer_e164} size="lg" />
+
+      <View style={styles.content}>
+        <Text style={[styles.name, missed && styles.nameMissed]} numberOfLines={1}>
+          {contactLabel}
+        </Text>
+        <View style={styles.statusRow}>
+          <DirectionIcon missed={missed} direction={call.direction} />
+          <Text style={[styles.statusText, missed && styles.statusMissed]}>{directionLabel}</Text>
         </View>
       </View>
 
-      <Text style={styles.inbox} numberOfLines={1}>
-        {call.inbox_display_name ?? 'Inbox'}
-      </Text>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Direction</Text>
-        <Text style={styles.metaValue}>{call.direction === 'inbound' ? 'Inbound' : 'Outbound'}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Contact</Text>
-        <Text style={styles.metaValue}>{call.customer_e164}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Agent</Text>
-        <Text style={styles.metaValue}>{call.agent_display_name ?? '—'}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Duration</Text>
-        <Text style={styles.metaValue}>{formatCallDuration(call.duration_seconds)}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Thread</Text>
-        <Text style={[styles.metaValue, call.thread_id ? styles.threadLink : styles.threadMuted]}>
-          {call.thread_id ? 'Open conversation' : '—'}
-        </Text>
+      <View style={styles.trailing}>
+        <Text style={styles.timestamp}>{formatCallListTimestamp(call.started_at)}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Call details"
+          hitSlop={8}
+          onPress={(event) => {
+            event.stopPropagation();
+            onPressInfo(call);
+          }}
+          style={({ pressed }) => [styles.infoButton, pressScaleStyle(pressed)]}>
+          <Info color={tavColors.blue} size={22} strokeWidth={2.2} />
+        </Pressable>
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: tavColors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    padding: 14,
-    gap: 6,
-  },
-  missedCard: {
-    borderColor: tavColors.amber100,
-    backgroundColor: 'rgba(255, 251, 235, 0.7)',
-  },
-  topRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: tavColors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tavColors.zinc100,
   },
-  when: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: tavColors.zinc700,
+  rowPressed: {
+    backgroundColor: tavColors.zinc50,
   },
-  statusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  content: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  inbox: {
-    fontSize: 16,
+  name: {
+    fontSize: 17,
     fontWeight: '600',
     color: tavColors.zinc900,
   },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+  nameMissed: {
+    color: tavColors.red600,
   },
-  metaLabel: {
-    fontSize: 13,
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusText: {
+    fontSize: 14,
     color: tavColors.zinc500,
   },
-  metaValue: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: 13,
-    color: tavColors.zinc700,
+  statusMissed: {
+    color: tavColors.red600,
   },
-  threadLink: {
-    color: tavColors.blue,
-    fontWeight: '600',
+  trailing: {
+    alignItems: 'flex-end',
+    gap: 8,
   },
-  threadMuted: {
-    color: tavColors.zinc400,
+  timestamp: {
+    fontSize: 14,
+    color: tavColors.zinc500,
+  },
+  infoButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

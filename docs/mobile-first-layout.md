@@ -352,17 +352,22 @@ Text placeholders (`▾`, `⌕`, `☰`, `＋`) replaced in inbox header, compose
 
 All use **`SupportScreenShell`** on `zinc-50` unless noted.
 
-### 9.1 Calls (`/(app)/calls`) — ✅ Done
+### 9.1 Calls (`/(app)/calls`) — 🟡 WhatsApp-style makeover (2026-08-03)
 
-| Web §9 | Mobile | Status |
+Uses **large title header** (matches Chats tab), not `SupportScreenShell`.
+
+| Pattern | Mobile | Status |
 |--------|--------|--------|
-| Page title 24px + subtitle | Shell title only | 🟡 No in-content subtitle strip |
-| Table in white card | FlatList card rows — `CallLogRow` | ✅ |
-| Missed rows `amber-50/70` | `missedCard` background | ✅ |
-| Status pills | `callStatusColors()` green/amber/red/blue | ✅ |
-| Thread link blue | `tavColors.link` | ✅ |
+| Large **Calls** title + **+** | Custom header on `threadListBg` | ✅ |
+| Quick actions row | **Call** + **Keypad** — `CallsQuickActions` | ✅ |
+| **Recent** section + scannable rows | Avatar, name, direction icon, time, info button | ✅ |
+| Missed emphasis | Red contact name + `PhoneMissed` icon | ✅ |
+| Call metadata | `CallDetailSheet` bottom sheet (inbox, agent, duration, thread) | ✅ |
+| US keypad | Full-screen `DialKeypadModal` — `(555) 123-4567`, auto `+1` | ✅ |
+| Outbound inbox picker | `VoiceInboxPickerSheet` when user has 2+ voice lines | ✅ |
+| Tap row → call back | Reuses `placeVoiceCallToNumber` | ✅ |
 
-Web uses HTML table; mobile uses list rows — same colors/density, not literal table. ✅ Acceptable.
+Web HTML table parity deferred — mobile uses consumer phone-app list pattern instead.
 
 ### 9.2 Contacts (`/(app)/contacts`) — 🟡 Mostly done
 
@@ -517,7 +522,7 @@ Use before marking a design pass complete:
 | Icons | `components/icons/lucide.tsx` |
 | Supporting shell | `workspace/support-screen-shell.tsx` |
 | Auth | `(auth)/login.tsx`, `components/auth/*` |
-| Calls | `calls/index.tsx`, `call-log-row.tsx` |
+| Calls | `calls/index.tsx`, `call-log-row.tsx`, `dial-keypad-modal.tsx`, `calls-quick-actions.tsx`, `call-detail-sheet.tsx`, `voice-inbox-picker-sheet.tsx` |
 | Voice overlay | `voice/in-call-overlay.tsx`, `thread-voice-call-controls.tsx` |
 | Compose (restyle pending) | `inbox/compose.tsx` |
 

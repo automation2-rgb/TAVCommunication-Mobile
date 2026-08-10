@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { UnreadCountBadge } from '@/components/inbox/unread-count-badge';
 import { tavColors, tavShadows, tavTypography } from '@/lib/theme';
 import type { ThreadListTab } from '@/types/messaging';
 
@@ -31,10 +32,10 @@ export function ThreadTabs({ activeTab, unreadCount, onChange }: ThreadTabsProps
               onChange(tab.id);
             }}
             style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.tabPressed]}>
-            <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
-              {tab.label}
-              {showUnreadCount ? ` (${unreadCount > 99 ? '99+' : unreadCount})` : ''}
-            </Text>
+            <View style={styles.tabLabelRow}>
+              <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
+              {showUnreadCount ? <UnreadCountBadge count={unreadCount} /> : null}
+            </View>
           </Pressable>
         );
       })}
@@ -67,6 +68,11 @@ const styles = StyleSheet.create({
   },
   tabPressed: {
     opacity: 0.9,
+  },
+  tabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   tabLabel: {
     fontSize: 13,

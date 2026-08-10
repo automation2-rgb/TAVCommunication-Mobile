@@ -4,13 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVoiceClient } from '@/contexts/voice-client';
 import { tavColors } from '@/lib/theme';
 
-type InCallOverlayProps = {
-  contactLabel: string;
-};
-
-export function InCallOverlay({ contactLabel }: InCallOverlayProps) {
+export function InCallOverlay() {
   const insets = useSafeAreaInsets();
-  const { phase, elapsedLabel, isMuted, hangUp, toggleMute } = useVoiceClient();
+  const { phase, elapsedLabel, isMuted, hangUp, toggleMute, activeContactLabel } = useVoiceClient();
 
   const visible = phase === 'connecting' || phase === 'in-call';
   if (!visible) {
@@ -24,20 +20,19 @@ export function InCallOverlay({ contactLabel }: InCallOverlayProps) {
       <View style={[styles.backdrop, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.card}>
           <Text style={styles.contact} numberOfLines={1}>
-            {contactLabel}
+            {activeContactLabel ?? 'On call'}
           </Text>
           <Text style={styles.status}>{statusLabel}</Text>
 
-          <View style={styles.controls}>
-            <Pressable accessibilityRole="button" onPress={() => void toggleMute()} style={styles.controlButton}>
-              <Text style={styles.controlLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+          <View style={styles.actions}>
+            <Pressable accessibilityRole="button" onPress={() => void toggleMute()} style={styles.actionButton}>
+              <Text style={styles.actionLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
             </Pressable>
-
             <Pressable
               accessibilityRole="button"
               onPress={() => void hangUp()}
-              style={[styles.controlButton, styles.hangUpButton]}>
-              <Text style={styles.hangUpLabel}>Hang up</Text>
+              style={[styles.actionButton, styles.hangUpButton]}>
+              <Text style={[styles.actionLabel, styles.hangUpLabel]}>Hang up</Text>
             </Pressable>
           </View>
         </View>
@@ -49,53 +44,48 @@ export function InCallOverlay({ contactLabel }: InCallOverlayProps) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(9, 9, 11, 0.72)',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   card: {
-    backgroundColor: tavColors.emerald50,
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: tavColors.white,
+    borderRadius: 20,
+    padding: 24,
     gap: 8,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
+    alignItems: 'center',
   },
   contact: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: tavColors.zinc900,
   },
   status: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: tavColors.emerald600,
-    fontVariant: ['tabular-nums'],
-  },
-  controls: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  controlButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: tavColors.zinc100,
-  },
-  controlLabel: {
     fontSize: 15,
-    fontWeight: '600',
-    color: tavColors.zinc700,
+    color: tavColors.zinc500,
+    marginBottom: 12,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    minWidth: 96,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: tavColors.zinc100,
+    alignItems: 'center',
   },
   hangUpButton: {
     backgroundColor: tavColors.red600,
   },
-  hangUpLabel: {
+  actionLabel: {
     fontSize: 15,
     fontWeight: '600',
+    color: tavColors.zinc900,
+  },
+  hangUpLabel: {
     color: tavColors.white,
   },
 });

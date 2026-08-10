@@ -16,14 +16,20 @@ import { ContactRow } from '@/components/contacts/contact-row';
 import { ContactTabs } from '@/components/contacts/contact-tabs';
 import { InboxEmptyState } from '@/components/inbox/empty-state';
 import { SupportScreenShell } from '@/components/workspace/support-screen-shell';
+import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { useVoiceClientActions } from '@/contexts/voice-client';
 import { useContactsDirectory, useContactsSearch } from '@/hooks/use-contacts-directory';
 import { useTeamContacts } from '@/hooks/use-team-contacts';
+import { findOrCreateDmConversation } from '@/lib/chat/messages';
 import { isValidE164Phone } from '@/lib/phone/e164';
+import { pickVoiceEnabledInbox, resolveDirectThreadForPhone } from '@/lib/voice/resolve-call-target';
 import { tavColors } from '@/lib/theme';
 import type { ContactDirectoryKind, ContactDirectoryRow } from '@/types/messaging';
 
 export default function ContactsScreen() {
   const router = useRouter();
+  const { inboxes } = useInboxWorkspace();
+  const { ensureReady, placeOutboundCall } = useVoiceClientActions();
   const [activeTab, setActiveTab] = useState<ContactDirectoryKind>('external');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -90,6 +96,92 @@ export default function ContactsScreen() {
       router.push(`/(app)/inbox/compose?to=${encodeURIComponent(phone)}` as Href);
     },
     [router],
+  );
+
+  const openChat = useCallback(
+    async (contact: ContactDirectoryRow) => {
+      try {
+        const conversation = await findOrCreateDmConversation(contact.id);
+        router.push(`/(app)/chat/${conversation.id}` as Href);
+      } catch (error) {
+        Alert.alert(
+          'Unable to open chat',
+          error instanceof Error ? error.message : 'Please try again.',
+        );
+      }
+    },
+    [router],
+  );
+
+  const startCall = useCallback(
+    async (contact: ContactDirectoryRow) => {
+      const phone = contact.phone_e164?.trim() ?? '';
+      if (!isValidE164Phone(phone)) {
+        Alert.alert('No phone number', 'This contact does not have a valid phone number to call.');
+        return;
+      }
+
+      const inbox = pickVoiceEnabledInbox(inboxes);
+      if (!inbox) {
+        Alert.alert('Voice unavailable', 'No voice-enabled inbox is assigned to your account.');
+        return;
+      }
+
+      try {
+        const threadId = await resolveDirectThreadForPhone(inbox.id, phone);
+        await ensureReady();
+        await placeOutboundCall({
+          threadId,
+          inboxId: inbox.id,
+          customerE164: phone,
+          contactLabel: contact.display_name?.trim() || phone,
+        });
+      } catch (error) {
+        Alert.alert(
+          'Unable to place call',
+          error instanceof Error ? error.message : 'Please try again.',
+        );
+      }
+    },
+    [ensureReady, inboxes, placeOutboundCall],
+  );
+
+  const openContactActions = useCallback(
+    (contact: ContactDirectoryRow) => {
+      const phone = contact.phone_e164?.trim() ?? '';
+      const hasPhone = isValidE164Phone(phone);
+      const isTeam = contact.source === 'team';
+      const title = contact.display_name?.trim() || phone || 'Contact';
+
+      const actions: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [];
+
+      if (isTeam) {
+        actions.push({
+          text: 'Message in app',
+          onPress: () => {
+            void openChat(contact);
+          },
+        });
+      }
+
+      if (hasPhone) {
+        actions.push({
+          text: 'Text (customer SMS)',
+          onPress: () => openCompose(contact),
+        });
+        actions.push({
+          text: 'Call',
+          onPress: () => {
+            void startCall(contact);
+          },
+        });
+      }
+
+      actions.push({ text: 'Cancel', style: 'cancel' });
+
+      Alert.alert(title, undefined, actions);
+    },
+    [openChat, openCompose, startCall],
   );
 
   const emptyCopy = useMemo(() => {
@@ -182,7 +274,7 @@ export default function ContactsScreen() {
             <ContactRow
               contact={item}
               badge={isTeamTab && item.tags?.[0] ? item.tags[0] : null}
-              onPress={openCompose}
+              onPress={openContactActions}
             />
           )}
         />

@@ -1,11 +1,12 @@
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,15 +14,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthButton } from '@/components/auth/auth-button';
-import { useContactsSearch } from '@/hooks/use-contacts-directory';
-import { useComposerAttachments } from '@/hooks/use-composer-attachments';
+import { ContactAvatar } from '@/components/avatars/contact-avatar';
+import { ContactRow } from '@/components/contacts/contact-row';
+import { Composer, type ComposerSendPayload } from '@/components/inbox/composer';
+import { Search, X } from '@/components/icons/lucide';
+import { useContactsDirectory, useContactsSearch } from '@/hooks/use-contacts-directory';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
-import { isImageMimeType } from '@/lib/messaging/mms-policy';
 import { isValidE164Phone } from '@/lib/phone/e164';
 import { sendDirectMessage } from '@/lib/messaging/send-message';
 import { fetchThreadById, isDirectThread } from '@/lib/messaging/threads';
-import { tavColors } from '@/lib/theme';
+import { pressScaleStyle, tavColors, tavLayout } from '@/lib/theme';
+import type { ContactDirectoryRow } from '@/types/messaging';
+
+type ComposeRecipient = {
+  e164: string;
+  label: string;
+};
 
 function firstParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -34,33 +42,59 @@ export default function ComposeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ to?: string | string[] }>();
   const { activeInbox } = useInboxWorkspace();
+  const [recipient, setRecipient] = useState<ComposeRecipient | null>(null);
   const [query, setQuery] = useState('');
+  const [manualOpen, setManualOpen] = useState(false);
   const [manualE164, setManualE164] = useState('');
-  const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const { results, isSearching } = useContactsSearch(query, query.trim().length >= 2);
-  const { files, removeFile, pickFromLibrary, pickFromCamera } = useComposerAttachments();
+
+  const historyOnly = !activeInbox?.twilio_phone_e164;
+  const canSend = Boolean(activeInbox?.twilio_phone_e164 && recipient);
+
+  const trimmedQuery = query.trim();
+  const isSearching = trimmedQuery.length >= 2;
+  const browse = useContactsDirectory({ kind: 'external', enabled: !isSearching });
+  const search = useContactsSearch(trimmedQuery, isSearching);
+
+  const contacts = useMemo(
+    () => (isSearching ? search.results : browse.contacts),
+    [browse.contacts, isSearching, search.results],
+  );
+
+  const isLoadingContacts = isSearching ? search.isSearching : browse.isLoading;
+  const contactsError = isSearching ? search.error : browse.error;
 
   useEffect(() => {
     const to = firstParam(params.to)?.trim();
     if (to && isValidE164Phone(to)) {
-      setManualE164(to);
+      setRecipient({ e164: to, label: to });
     }
   }, [params.to]);
 
-  const recipient = useMemo(() => {
-    const manual = manualE164.trim();
-    if (isValidE164Phone(manual)) {
-      return manual;
+  const handleSelectContact = useCallback((contact: ContactDirectoryRow) => {
+    const phone = contact.phone_e164?.trim() ?? '';
+    if (!isValidE164Phone(phone)) {
+      Alert.alert('No phone number', 'This contact does not have a valid phone number.');
+      return;
     }
-    return null;
-  }, [manualE164]);
+    setRecipient({
+      e164: phone,
+      label: contact.display_name?.trim() || phone,
+    });
+    setManualOpen(false);
+    setManualE164('');
+  }, []);
 
-  const canSend = Boolean(
-    activeInbox?.twilio_phone_e164 && recipient && (body.trim().length > 0 || files.length > 0),
-  );
+  const handleApplyManual = () => {
+    const trimmed = manualE164.trim();
+    if (!isValidE164Phone(trimmed)) {
+      return;
+    }
+    setRecipient({ e164: trimmed, label: trimmed });
+    setManualOpen(false);
+  };
 
-  const handleSend = async () => {
+  const handleSend = async ({ body, files }: ComposerSendPayload) => {
     if (!activeInbox?.id || !recipient || (!body.trim() && files.length === 0)) {
       return;
     }
@@ -69,7 +103,7 @@ export default function ComposeScreen() {
     try {
       const result = await sendDirectMessage({
         inboxId: activeInbox.id,
-        toE164: recipient,
+        toE164: recipient.e164,
         body: body.trim(),
         files,
       });
@@ -82,7 +116,7 @@ export default function ComposeScreen() {
         }
       }
 
-      Alert.alert('Message sent', `Your message was sent to ${recipient}.`);
+      Alert.alert('Message sent', `Your message was sent to ${recipient.label}.`);
       router.back();
     } catch (error) {
       Alert.alert('Send failed', error instanceof Error ? error.message : 'Unable to send message.');
@@ -91,121 +125,141 @@ export default function ComposeScreen() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.cancel}>Cancel</Text>
-        </Pressable>
-        <Text style={styles.title}>New conversation</Text>
-        <View style={styles.headerSpacer} />
+  const listHeader = (
+    <View style={styles.listHeader}>
+      {historyOnly ? (
+        <Text style={styles.warning}>This inbox is history-only. Sending is disabled.</Text>
+      ) : null}
+
+      {recipient ? (
+        <View style={styles.toRow}>
+          <Text style={styles.toLabel}>To</Text>
+          <View style={styles.toChip}>
+            <ContactAvatar displayName={recipient.label} phoneE164={recipient.e164} size="sm" />
+            <View style={styles.toChipText}>
+              <Text numberOfLines={1} style={styles.toChipTitle}>
+                {recipient.label}
+              </Text>
+              <Text numberOfLines={1} style={styles.toChipMeta}>
+                {recipient.e164}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear recipient"
+              onPress={() => setRecipient(null)}
+              style={({ pressed }) => [styles.toClear, pressScaleStyle(pressed)]}>
+              <X color={tavColors.zinc500} size={18} strokeWidth={2.2} />
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.searchField}>
+        <Search color={tavColors.zinc400} size={18} strokeWidth={2.2} />
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="Search contacts"
+          placeholderTextColor={tavColors.zinc400}
+          style={styles.searchInput}
+          value={query}
+          onChangeText={setQuery}
+        />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {!activeInbox?.twilio_phone_e164 ? (
-          <Text style={styles.warning}>This inbox is history-only. Sending is disabled.</Text>
-        ) : null}
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Search contacts</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="Name or phone"
-            placeholderTextColor={tavColors.zinc500}
-            style={styles.input}
-            value={query}
-            onChangeText={setQuery}
-          />
-        </View>
-
-        {isSearching ? <ActivityIndicator color={tavColors.blue} /> : null}
-
-        {results.slice(0, 8).map((contact) => (
-          <Pressable
-            key={contact.id}
-            style={styles.resultRow}
-            onPress={() => {
-              setManualE164(contact.phone_e164);
-              setQuery(contact.display_name ?? contact.phone_e164);
-            }}>
-            <Text style={styles.resultTitle}>{contact.display_name ?? contact.phone_e164}</Text>
-            <Text style={styles.resultMeta}>{contact.phone_e164}</Text>
-          </Pressable>
-        ))}
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Recipient (E.164)</Text>
+      {manualOpen ? (
+        <View style={styles.manualBlock}>
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="phone-pad"
             placeholder="+15551234567"
-            placeholderTextColor={tavColors.zinc500}
-            style={styles.input}
+            placeholderTextColor={tavColors.zinc400}
+            style={styles.manualInput}
             value={manualE164}
             onChangeText={setManualE164}
           />
+          <View style={styles.manualActions}>
+            <Pressable onPress={() => setManualOpen(false)}>
+              <Text style={styles.manualCancel}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={!isValidE164Phone(manualE164.trim())}
+              onPress={handleApplyManual}
+              style={({ pressed }) => [styles.manualApply, pressScaleStyle(pressed)]}>
+              <Text style={styles.manualApplyLabel}>Use number</Text>
+            </Pressable>
+          </View>
         </View>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setManualOpen(true)}
+          style={({ pressed }) => [styles.manualLink, pressScaleStyle(pressed)]}>
+          <Text style={styles.manualLinkLabel}>Enter number manually</Text>
+        </Pressable>
+      )}
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Message</Text>
-          <TextInput
-            multiline
-            maxLength={1600}
-            placeholder="Write your first message"
-            placeholderTextColor={tavColors.zinc500}
-            style={[styles.input, styles.messageInput]}
-            value={body}
-            onChangeText={setBody}
+      {contactsError ? (
+        <Text style={styles.errorText}>
+          {contactsError.message || 'Unable to load contacts.'}
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()}>
+          <Text style={styles.cancel}>Cancel</Text>
+        </Pressable>
+        <Text style={styles.title}>New message</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        style={styles.flex}>
+        {isLoadingContacts && contacts.length === 0 ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color={tavColors.blue} />
+          </View>
+        ) : (
+          <FlatList
+            data={contacts}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={
+              !isLoadingContacts ? (
+                <Text style={styles.emptyText}>
+                  {isSearching ? 'No contacts match your search.' : 'No contacts yet.'}
+                </Text>
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <ContactRow contact={item} onPress={handleSelectContact} />
+            )}
+            style={styles.list}
           />
-        </View>
+        )}
 
-        <View style={styles.attachmentRow}>
-          <Pressable disabled={isSending} onPress={() => void pickFromLibrary()} style={styles.attachButton}>
-            <Text style={styles.attachLabel}>Photo library</Text>
-          </Pressable>
-          <Pressable
-            disabled={isSending}
-            onPress={() => void pickFromCamera()}
-            style={styles.attachButtonSecondary}>
-            <Text style={styles.attachLabelSecondary}>Camera</Text>
-          </Pressable>
-        </View>
-
-        {files.length > 0 ? (
-          <ScrollView horizontal contentContainerStyle={styles.previewRow} showsHorizontalScrollIndicator={false}>
-            {files.map((file, index) => (
-              <View key={`${file.uri}-${index}`} style={styles.previewTile}>
-                {isImageMimeType(file.type) ? (
-                  <Image source={{ uri: file.uri }} style={styles.previewImage} />
-                ) : (
-                  <View style={styles.previewFile}>
-                    <Text style={styles.previewFileIcon}>📎</Text>
-                    <Text numberOfLines={2} style={styles.previewFileLabel}>
-                      {file.name}
-                    </Text>
-                  </View>
-                )}
-                <Pressable
-                  disabled={isSending}
-                  onPress={() => removeFile(index)}
-                  style={styles.removeButton}>
-                  <Text style={styles.removeLabel}>×</Text>
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        <AuthButton
-          disabled={!canSend || isSending}
-          label={isSending ? 'Sending…' : 'Send'}
-          onPress={() => {
-            void handleSend();
-          }}
+        <Composer
+          disabled={!canSend}
+          disabledReason={
+            historyOnly
+              ? 'This inbox cannot send new messages.'
+              : !recipient
+                ? 'Select a contact to send.'
+                : undefined
+          }
+          isSending={isSending}
+          onSend={handleSend}
         />
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -214,6 +268,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: tavColors.white,
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -227,6 +284,8 @@ const styles = StyleSheet.create({
   cancel: {
     color: tavColors.blue,
     fontSize: 16,
+    fontWeight: '500',
+    minWidth: 72,
   },
   title: {
     fontSize: 17,
@@ -234,25 +293,100 @@ const styles = StyleSheet.create({
     color: tavColors.zinc900,
   },
   headerSpacer: {
-    width: 48,
+    minWidth: 72,
   },
-  content: {
-    padding: 16,
-    gap: 16,
+  list: {
+    flex: 1,
+    backgroundColor: tavColors.threadListBg,
+  },
+  listHeader: {
+    backgroundColor: tavColors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tavColors.zinc200,
+    paddingBottom: 8,
   },
   warning: {
-    color: tavColors.amber600,
     fontSize: 14,
+    color: tavColors.amber800,
+    backgroundColor: tavColors.amber50,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
-  fieldGroup: {
+  toRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
     gap: 8,
   },
-  label: {
-    fontSize: 14,
+  toLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tavColors.zinc500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  toChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  toChipText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  toChipTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: tavColors.zinc900,
   },
-  input: {
+  toChipMeta: {
+    fontSize: 14,
+    color: tavColors.zinc500,
+  },
+  toClear: {
+    width: tavLayout.iconButtonSize - 8,
+    height: tavLayout.iconButtonSize - 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: tavColors.zinc100,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: tavColors.zinc900,
+    paddingVertical: 0,
+  },
+  manualLink: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  manualLinkLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: tavColors.blue,
+  },
+  manualBlock: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  manualInput: {
     borderWidth: 1,
     borderColor: tavColors.zinc200,
     borderRadius: 12,
@@ -262,104 +396,44 @@ const styles = StyleSheet.create({
     color: tavColors.zinc900,
     backgroundColor: tavColors.white,
   },
-  messageInput: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  resultRow: {
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    borderRadius: 12,
-    padding: 12,
-    gap: 2,
-  },
-  resultTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: tavColors.zinc900,
-  },
-  resultMeta: {
-    fontSize: 13,
-    color: tavColors.zinc500,
-  },
-  attachmentRow: {
+  manualActions: {
     flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  attachButton: {
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: tavColors.zinc50,
-  },
-  attachButtonSecondary: {
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: tavColors.white,
-  },
-  attachLabel: {
-    color: tavColors.zinc700,
-    fontSize: 14,
+  manualCancel: {
+    fontSize: 15,
+    color: tavColors.zinc600,
     fontWeight: '500',
   },
-  attachLabelSecondary: {
-    color: tavColors.zinc700,
+  manualApply: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: tavColors.blue,
+  },
+  manualApplyLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: tavColors.white,
   },
-  previewRow: {
-    gap: 8,
+  errorText: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    fontSize: 14,
+    color: tavColors.red600,
   },
-  previewTile: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: tavColors.zinc100,
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
+  emptyText: {
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    fontSize: 15,
+    color: tavColors.zinc500,
+    textAlign: 'center',
   },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  previewFile: {
+  loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 6,
-    gap: 4,
-  },
-  previewFileIcon: {
-    fontSize: 18,
-  },
-  previewFileLabel: {
-    fontSize: 10,
-    lineHeight: 12,
-    textAlign: 'center',
-    color: tavColors.zinc600,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(9, 9, 11, 0.72)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeLabel: {
-    color: tavColors.white,
-    fontSize: 16,
-    lineHeight: 18,
-    fontWeight: '700',
+    backgroundColor: tavColors.threadListBg,
   },
 });

@@ -64,6 +64,7 @@ export type ContactDirectoryRow = {
   id: string;
   phone_e164: string;
   display_name: string | null;
+  avatar_storage_path?: string | null;
   notes: string | null;
   tags: string[] | null;
   source: string | null;

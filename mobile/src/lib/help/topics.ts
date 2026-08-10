@@ -99,8 +99,8 @@ export const HELP_SECTIONS: HelpSection[] = [
 ];
 
 export const HELP_QUICK_LINKS: HelpQuickLink[] = [
-  { id: 'inbox', label: 'Inbox', href: '/(app)/inbox' },
+  { id: 'inbox', label: 'Text', href: '/(app)/inbox' },
+  { id: 'chat', label: 'Chats', href: '/(app)/chat' },
   { id: 'contacts', label: 'Contacts', href: '/(app)/contacts' },
   { id: 'profile', label: 'Profile', href: '/(app)/profile' },
-  { id: 'settings', label: 'Settings', href: '/(app)/settings' },
 ];

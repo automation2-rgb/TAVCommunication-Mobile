@@ -27,13 +27,17 @@ type OutboundCallRequest = {
   contactLabel?: string;
 };
 
-type VoiceClientContextValue = {
+type VoiceClientStateValue = {
   phase: VoicePhase;
   errorMessage: string | null;
   micAccess: MicrophoneAccess;
   isMuted: boolean;
   elapsedLabel: string;
   isBusy: boolean;
+  activeContactLabel: string | null;
+};
+
+type VoiceClientActionsValue = {
   ensureReady: () => Promise<void>;
   placeOutboundCall: (request: OutboundCallRequest) => Promise<void>;
   hangUp: () => Promise<void>;
@@ -41,7 +45,10 @@ type VoiceClientContextValue = {
   refreshMicAccess: () => Promise<void>;
 };
 
+type VoiceClientContextValue = VoiceClientStateValue & VoiceClientActionsValue;
+
 const VoiceClientContext = createContext<VoiceClientContextValue | null>(null);
+const VoiceClientActionsContext = createContext<VoiceClientActionsValue | null>(null);
 
 let sharedVoice: Voice | null = null;
 
@@ -71,6 +78,7 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
   const [micAccess, setMicAccess] = useState<MicrophoneAccess>('denied');
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [activeContactLabel, setActiveContactLabel] = useState<string | null>(null);
 
   const tokenRef = useRef<string | null>(null);
   const tokenExpiresAtRef = useRef<number | null>(null);
@@ -100,6 +108,7 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
     connectedAtRef.current = null;
     setIsMuted(false);
     setElapsedSeconds(0);
+    setActiveContactLabel(null);
     setPhase((current) => (current === 'error' ? current : 'ready'));
   }, [detachCallListeners]);
 
@@ -244,6 +253,7 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
         }
 
         const label = request.contactLabel?.trim() || connectParams.To;
+        setActiveContactLabel(label);
         const voice = getVoiceInstance();
         const call = await voice.connect(token, {
           params,
@@ -346,7 +356,33 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
     };
   }, [clearRefreshTimer, hangUp]);
 
-  const value = useMemo<VoiceClientContextValue>(
+  const actionsRef = useRef<VoiceClientActionsValue>({
+    ensureReady,
+    placeOutboundCall,
+    hangUp,
+    toggleMute,
+    refreshMicAccess,
+  });
+  actionsRef.current = {
+    ensureReady,
+    placeOutboundCall,
+    hangUp,
+    toggleMute,
+    refreshMicAccess,
+  };
+
+  const stableActions = useMemo<VoiceClientActionsValue>(
+    () => ({
+      ensureReady: () => actionsRef.current.ensureReady(),
+      placeOutboundCall: (request) => actionsRef.current.placeOutboundCall(request),
+      hangUp: () => actionsRef.current.hangUp(),
+      toggleMute: () => actionsRef.current.toggleMute(),
+      refreshMicAccess: () => actionsRef.current.refreshMicAccess(),
+    }),
+    [],
+  );
+
+  const stateValue = useMemo<VoiceClientStateValue>(
     () => ({
       phase,
       errorMessage,
@@ -354,33 +390,40 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
       isMuted,
       elapsedLabel: formatVoiceElapsed(elapsedSeconds),
       isBusy: phase === 'connecting' || phase === 'in-call',
-      ensureReady,
-      placeOutboundCall,
-      hangUp,
-      toggleMute,
-      refreshMicAccess,
+      activeContactLabel,
     }),
-    [
-      elapsedSeconds,
-      ensureReady,
-      errorMessage,
-      hangUp,
-      isMuted,
-      micAccess,
-      phase,
-      placeOutboundCall,
-      refreshMicAccess,
-      toggleMute,
-    ],
+    [activeContactLabel, elapsedSeconds, errorMessage, isMuted, micAccess, phase],
   );
 
-  return <VoiceClientContext.Provider value={value}>{children}</VoiceClientContext.Provider>;
+  const value = useMemo<VoiceClientContextValue>(
+    () => ({
+      ...stateValue,
+      ...stableActions,
+    }),
+    [stableActions, stateValue],
+  );
+
+  return (
+    <VoiceClientActionsContext.Provider value={stableActions}>
+      <VoiceClientContext.Provider value={value}>{children}</VoiceClientContext.Provider>
+    </VoiceClientActionsContext.Provider>
+  );
 }
 
 export function useVoiceClient() {
   const context = useContext(VoiceClientContext);
   if (!context) {
     throw new Error('useVoiceClient must be used within VoiceClientProvider');
+  }
+
+  return context;
+}
+
+/** Stable voice actions that do not re-render when call timer/state ticks. */
+export function useVoiceClientActions() {
+  const context = useContext(VoiceClientActionsContext);
+  if (!context) {
+    throw new Error('useVoiceClientActions must be used within VoiceClientProvider');
   }
 
   return context;

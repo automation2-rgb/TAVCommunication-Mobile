@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { listContactsDirectoryPage, queryContactsDirectory } from '@/lib/messaging/contacts';
+import { useAuth } from '@/lib/auth/auth-provider';
+import {
+  listContactsDirectoryPage,
+  queryContactsDirectory,
+  toContactsError,
+  type ContactsDirectoryCursor,
+} from '@/lib/messaging/contacts';
 import type { ContactDirectoryKind, ContactDirectoryRow } from '@/types/messaging';
 
 export function useContactsDirectory(params: { kind: ContactDirectoryKind; enabled?: boolean }) {
+  const { session, isLoading: authLoading } = useAuth();
   const { kind, enabled = true } = params;
+  const fetchEnabled = enabled && !authLoading && Boolean(session);
+
   const [contacts, setContacts] = useState<ContactDirectoryRow[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(enabled);
+  const [nextCursor, setNextCursor] = useState<ContactsDirectoryCursor | null>(null);
+  const [isLoading, setIsLoading] = useState(fetchEnabled);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!enabled) {
+    if (!fetchEnabled) {
       return;
     }
 
@@ -24,14 +33,14 @@ export function useContactsDirectory(params: { kind: ContactDirectoryKind; enabl
       setContacts(page.contacts);
       setNextCursor(page.nextCursor);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unable to load contacts.'));
+      setError(toContactsError(err, 'Unable to load contacts.'));
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, kind]);
+  }, [fetchEnabled, kind]);
 
   const loadMore = useCallback(async () => {
-    if (!enabled || !nextCursor || isLoadingMore) {
+    if (!fetchEnabled || !nextCursor || isLoadingMore) {
       return;
     }
 
@@ -49,15 +58,32 @@ export function useContactsDirectory(params: { kind: ContactDirectoryKind; enabl
       });
       setNextCursor(page.nextCursor);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unable to load more contacts.'));
+      setError(toContactsError(err, 'Unable to load more contacts.'));
     } finally {
       setIsLoadingMore(false);
     }
-  }, [enabled, isLoadingMore, kind, nextCursor]);
+  }, [fetchEnabled, isLoadingMore, kind, nextCursor]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    if (authLoading) {
+      setIsLoading(true);
+      return;
+    }
+
+    if (!session) {
+      setContacts([]);
+      setNextCursor(null);
+      setIsLoading(false);
+      setError(new Error('Sign in required to load contacts.'));
+      return;
+    }
+
     void refresh();
-  }, [refresh]);
+  }, [authLoading, enabled, refresh, session]);
 
   return {
     contacts,
@@ -71,13 +97,16 @@ export function useContactsDirectory(params: { kind: ContactDirectoryKind; enabl
 }
 
 export function useContactsSearch(query: string, enabled = true) {
+  const { session, isLoading: authLoading } = useAuth();
   const [results, setResults] = useState<ContactDirectoryRow[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!enabled || trimmed.length === 0) {
+    const fetchEnabled = enabled && !authLoading && Boolean(session);
+
+    if (!fetchEnabled || trimmed.length === 0) {
       setResults([]);
       setIsSearching(false);
       setError(null);
@@ -97,7 +126,7 @@ export function useContactsSearch(query: string, enabled = true) {
         })
         .catch((err) => {
           if (!cancelled) {
-            setError(err instanceof Error ? err : new Error('Unable to search contacts.'));
+            setError(toContactsError(err, 'Unable to search contacts.'));
           }
         })
         .finally(() => {
@@ -111,7 +140,7 @@ export function useContactsSearch(query: string, enabled = true) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [enabled, query]);
+  }, [authLoading, enabled, query, session]);
 
   return { results, isSearching, error };
 }

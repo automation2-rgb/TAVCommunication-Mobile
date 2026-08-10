@@ -66,3 +66,23 @@ export function isSameCalendarDay(aIso: string, bIso: string): boolean {
   const b = new Date(bIso);
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+
+/** Calls list: time today, weekday within the past week, else short date. */
+export function formatCallListTimestamp(iso: string | null | undefined): string {
+  if (!iso) {
+    return '';
+  }
+
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+
+  if (diffMs < 86_400_000) {
+    return formatMessageTime(iso);
+  }
+
+  if (diffMs < 604_800_000) {
+    return date.toLocaleDateString(undefined, { weekday: 'long' });
+  }
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

@@ -1,4 +1,4 @@
-import { Paperclip, Send, X } from '@/components/icons/lucide';
+import { Paperclip, Send, X, Camera, ImageIcon } from '@/components/icons/lucide';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useComposerAttachments } from '@/hooks/use-composer-attachments';
+import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import type { ComposerFile } from '@/lib/messaging/mms-policy';
 import { isImageMimeType } from '@/lib/messaging/mms-policy';
 import { pressScaleStyle, tavColors, tavLayout, tavShadows, tavTypography } from '@/lib/theme';
@@ -34,6 +35,7 @@ type ComposerProps = {
 
 export function Composer({ disabled = false, disabledReason, isSending = false, onSend }: ComposerProps) {
   const insets = useSafeAreaInsets();
+  const { setComposerKeyboardOpen } = useTabBarVisibility();
   const [body, setBody] = useState('');
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -120,8 +122,14 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
           style={styles.input}
           value={body}
           onChangeText={setBody}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={() => {
+            setFocused(true);
+            setComposerKeyboardOpen(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            setComposerKeyboardOpen(false);
+          }}
         />
 
         <Pressable
@@ -159,21 +167,29 @@ export function Composer({ disabled = false, disabledReason, isSending = false, 
         visible={attachMenuOpen}>
         <Pressable style={styles.menuBackdrop} onPress={() => setAttachMenuOpen(false)}>
           <View style={[styles.menuSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <Text style={styles.menuTitle}>Add attachment</Text>
-            <Pressable
-              style={styles.menuButton}
-              onPress={() => {
-                runPicker(pickFromLibrary);
-              }}>
-              <Text style={styles.menuButtonLabel}>Photo library</Text>
-            </Pressable>
-            <Pressable
-              style={styles.menuButton}
-              onPress={() => {
-                runPicker(pickFromCamera);
-              }}>
-              <Text style={styles.menuButtonLabel}>Camera</Text>
-            </Pressable>
+            <Text style={styles.menuTitle}>Add to message</Text>
+            <View style={styles.menuActions}>
+              <Pressable
+                style={({ pressed }) => [styles.menuAction, pressScaleStyle(pressed)]}
+                onPress={() => {
+                  runPicker(pickFromLibrary);
+                }}>
+                <View style={styles.menuActionIcon}>
+                  <ImageIcon color={tavColors.blue} size={22} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.menuActionLabel}>Gallery</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.menuAction, pressScaleStyle(pressed)]}
+                onPress={() => {
+                  runPicker(pickFromCamera);
+                }}>
+                <View style={styles.menuActionIcon}>
+                  <Camera color={tavColors.blue} size={22} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.menuActionLabel}>Camera</Text>
+              </Pressable>
+            </View>
             <Pressable style={styles.menuCancel} onPress={() => setAttachMenuOpen(false)}>
               <Text style={styles.menuCancelLabel}>Cancel</Text>
             </Pressable>
@@ -326,18 +342,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: tavColors.zinc900,
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  menuButton: {
-    borderRadius: 12,
-    backgroundColor: tavColors.zinc100,
-    paddingVertical: 14,
+  menuActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 8,
+  },
+  menuAction: {
+    width: 108,
     alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
   },
-  menuButtonLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: tavColors.zinc900,
+  menuActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: tavColors.zinc50,
+    borderWidth: 1,
+    borderColor: tavColors.zinc200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuActionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tavColors.zinc800,
   },
   menuCancel: {
     borderRadius: 12,

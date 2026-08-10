@@ -6,6 +6,7 @@ export type Profile = {
   email: string;
   display_name: string | null;
   phone_e164: string | null;
+  avatar_storage_path: string | null;
   role: UserRole;
   approval_status: ApprovalStatus;
   onboarding_submitted_at: string | null;

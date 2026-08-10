@@ -87,7 +87,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SupportScreenShell title="Settings" padded={false}>
+    <SupportScreenShell title="Settings" padded={false} showBack backLabel="Profile">
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {errorMessage ? (
           <View style={styles.errorBanner}>

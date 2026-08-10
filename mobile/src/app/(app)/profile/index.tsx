@@ -1,6 +1,9 @@
+import { Href, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,13 +11,17 @@ import {
   View,
 } from 'react-native';
 
+import { UserAvatar } from '@/components/avatars/user-avatar';
 import { AuthButton } from '@/components/auth/auth-button';
 import { SignOutButton } from '@/components/auth/sign-out-button';
+import { ProfilePhotoCropModal } from '@/components/profile/profile-photo-crop-modal';
 import { SupportScreenShell } from '@/components/workspace/support-screen-shell';
+import { useProfileAvatarPicker, type ProfilePhotoSelection } from '@/hooks/use-profile-avatar-picker';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { isValidE164Phone } from '@/lib/phone/e164';
+import { removeProfileAvatar, uploadProfileAvatar } from '@/lib/profile/avatar-storage';
 import { updateOwnProfile } from '@/lib/profile/update-profile';
-import { tavColors } from '@/lib/theme';
+import { pressScaleStyle, tavColors, tavLayout } from '@/lib/theme';
 
 function roleLabel(role: string | undefined) {
   if (role === 'admin') {
@@ -27,10 +34,14 @@ function roleLabel(role: string | undefined) {
 }
 
 export default function ProfileScreen() {
-  const { profile, refreshProfile } = useAuth();
+  const router = useRouter();
+  const { profile, refreshProfile, session } = useAuth();
+  const { promptForPhoto } = useProfileAvatarPicker();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [phoneE164, setPhoneE164] = useState(profile?.phone_e164 ?? '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isAvatarBusy, setIsAvatarBusy] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<ProfilePhotoSelection | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -74,11 +85,125 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleUploadPhoto = async (selection: {
+    uri: string;
+    name: string;
+    mimeType: string;
+    sizeBytes?: number;
+    alreadyPrepared?: boolean;
+  }) => {
+    const userId = session?.user.id;
+    if (!userId) {
+      Alert.alert('Sign in required', 'You must be signed in to update your profile photo.');
+      return;
+    }
+
+    setIsAvatarBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await uploadProfileAvatar({
+        userId,
+        uri: selection.uri,
+        name: selection.name,
+        mimeType: selection.mimeType,
+        sizeBytes: selection.sizeBytes,
+        alreadyPrepared: selection.alreadyPrepared,
+      });
+      await refreshProfile();
+      setSuccessMessage('Profile photo updated.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update your profile photo.';
+      setErrorMessage(message);
+      Alert.alert('Could not update photo', message);
+    } finally {
+      setIsAvatarBusy(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    const userId = session?.user.id;
+    if (!userId) {
+      return;
+    }
+
+    setIsAvatarBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await removeProfileAvatar(userId, profile?.avatar_storage_path);
+      await refreshProfile();
+      setSuccessMessage('Profile photo removed.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to remove your profile photo.';
+      setErrorMessage(message);
+      Alert.alert('Could not remove photo', message);
+    } finally {
+      setIsAvatarBusy(false);
+    }
+  };
+
+  const openPhotoOptions = () => {
+    if (isAvatarBusy) {
+      return;
+    }
+
+    promptForPhoto({
+      hasPhoto: Boolean(profile?.avatar_storage_path),
+      onPick: (selection) => {
+        setPendingPhoto(selection);
+      },
+      onRemove: () => {
+        void handleRemovePhoto();
+      },
+    });
+  };
+
   return (
-    <SupportScreenShell title="Profile" padded={false}>
+    <>
+      {pendingPhoto ? (
+        <ProfilePhotoCropModal
+          fileName={pendingPhoto.name}
+          mimeType={pendingPhoto.mimeType}
+          uri={pendingPhoto.uri}
+          visible
+          onCancel={() => {
+            setPendingPhoto(null);
+          }}
+          onConfirm={async (prepared) => {
+            setPendingPhoto(null);
+            await handleUploadPhoto({ ...prepared, alreadyPrepared: true });
+          }}
+        />
+      ) : null}
+      <SupportScreenShell title="Profile" padded={false}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
+        <View style={styles.avatarSection}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+            disabled={isAvatarBusy}
+            onPress={openPhotoOptions}
+            style={({ pressed }) => [styles.avatarButton, pressed && styles.avatarButtonPressed]}>
+            <UserAvatar
+              avatarStoragePath={profile?.avatar_storage_path}
+              displayName={profile?.display_name}
+              email={profile?.email}
+              size={tavLayout.avatarLg + 16}
+            />
+            {isAvatarBusy ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color={tavColors.white} />
+              </View>
+            ) : null}
+          </Pressable>
+          <Text style={styles.avatarHint}>Tap to change your profile photo</Text>
+        </View>
+
         {errorMessage ? (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{errorMessage}</Text>
@@ -144,9 +269,27 @@ export default function ProfileScreen() {
           }}
         />
 
+        <View style={styles.linkSection}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/(app)/settings' as Href)}
+            style={({ pressed }) => [styles.linkRow, pressScaleStyle(pressed)]}>
+            <Text style={styles.linkLabel}>Settings</Text>
+            <Text style={styles.linkChevron}>›</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/(app)/help' as Href)}
+            style={({ pressed }) => [styles.linkRow, styles.linkRowLast, pressScaleStyle(pressed)]}>
+            <Text style={styles.linkLabel}>Help</Text>
+            <Text style={styles.linkChevron}>›</Text>
+          </Pressable>
+        </View>
+
         <SignOutButton variant="secondary" />
       </ScrollView>
     </SupportScreenShell>
+    </>
   );
 }
 
@@ -155,6 +298,29 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
     paddingBottom: 32,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  avatarButton: {
+    position: 'relative',
+  },
+  avatarButtonPressed: {
+    opacity: 0.85,
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  avatarHint: {
+    fontSize: 13,
+    color: tavColors.zinc500,
   },
   fieldGroup: {
     gap: 8,
@@ -206,5 +372,34 @@ const styles = StyleSheet.create({
     color: tavColors.emerald600,
     fontSize: 14,
     lineHeight: 20,
+  },
+  linkSection: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tavColors.zinc200,
+    backgroundColor: tavColors.white,
+    overflow: 'hidden',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tavColors.zinc200,
+  },
+  linkRowLast: {
+    borderBottomWidth: 0,
+  },
+  linkLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: tavColors.zinc900,
+  },
+  linkChevron: {
+    fontSize: 22,
+    color: tavColors.zinc400,
+    lineHeight: 22,
   },
 });

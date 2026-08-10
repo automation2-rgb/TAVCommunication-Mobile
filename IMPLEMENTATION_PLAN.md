@@ -14,23 +14,24 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-07-20 · **Current focus:** Phase 12 voice device QA; mobile UI aligned to web design docs
+**Last updated:** 2026-08-03 · **Current focus:** Calls tab makeover (WhatsApp-style layout + US keypad); Phase 12 voice device QA
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Prerequisites | 🟡 ~85% — Apple/Play deferred |
 | 1 | Backend (Vercel) | ✅ Done — Bearer, push register, FCM dispatch (`after()`), Firebase env verified |
-| 2 | Project scaffold | 🟡 ~95% — web design parity pass; Geist fonts deferred |
+| 2 | Project scaffold | 🟡 ~95% — bottom tab nav (Text/Chats/Calls/Contacts/Profile); Geist fonts deferred |
 | 3 | Authentication | ✅ Done — Google sign-in verified on Android dev build |
 | 4 | Data layer | ✅ Done — libs + hooks; inbox E2E verified |
 | 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
 | 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
 | 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
-| 8 | Supporting screens | ✅ Done — Contacts, Profile, Settings, Help verified on Android emulator 2026-07-15 |
+| 8 | Supporting screens | 🟡 Partial — profile photos + Settings/Help under Profile tab; bottom tab nav |
 | 9 | EAS build & distribution | ⬜ Not started (Apple/Play deferred) |
-| 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS + supporting screens verified; full matrix pending |
+| 10 | QA & sign-off | 🟡 Partial — core inbox + push + MMS + supporting screens verified; chat + tabs QA pending |
 | 11 | Voice messaging | ⏸ Deferred — not shipping on mobile (carrier MMS audio arrives as link; web has no inbox recorder) |
-| 12 | Voice calls | 🟡 Partial — outbound + Calls screen + missed badge in code; inbound deferred; native rebuild + device QA pending |
+| 12 | Voice calls | 🟡 Partial — outbound + Calls tab (WhatsApp-style list, keypad, inbox picker) + missed badge; inbound deferred; device QA pending |
+| 13 | Internal chat (mobile) | 🟡 Partial — DMs + groups + images via `/api/chat/*`; Realtime + tab badge; device QA pending |
 
 **Status legend:** ✅ Done · 🟡 Partial · ⏸ Deferred · ⬜ Not started
 
@@ -451,6 +452,7 @@ Reference: `flows/04-contacts-directory.md`, `flows/05-team-profile-settings-hel
 |--------|---|------|
 | ✅ | 8.2.1 | Edit `display_name`, `phone_e164` via Supabase direct update. | `update-profile.ts` + Profile screen |
 | ✅ | 8.2.2 | Email read-only; role display-only. |
+| ✅ | 8.2.3 | Optional profile photo: camera/gallery upload, remove, initials fallback; `profile-avatars` Storage bucket + `profiles.avatar_storage_path`; team tab shows teammate photos. | mobile-only; web parity deferred |
 
 ### Step 8.3 — Settings
 
@@ -585,7 +587,7 @@ Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound
 | Status | # | Rule |
 |--------|---|------|
 | 🟡 | 12.2.1 | Show Call control only when: `thread_kind === "direct"`, `customer_e164` present, inbox has `twilio_phone_e164`. | `voice-enabled.ts` + thread header |
-| 🟡 | 12.2.2 | Sequence: ensure Device ready → `POST /api/voice/outbound` `{ thread_id, inbox_id, customer_e164 }` → `device.connect(connectParams)`. | `VoiceClientProvider` — device QA pending |
+| 🟡 | 12.2.2 | Sequence: ensure Device ready → `POST /api/voice/outbound` `{ thread_id, inbox_id, customer_e164 }` → `device.connect(connectParams)`. | `VoiceClientProvider` + Calls keypad/New call with inbox picker — device QA pending |
 | ✅ | 12.2.3 | In-call UI: elapsed timer, mute/unmute, hang up (no DTMF / transfer / hold in v1). | `InCallOverlay` |
 | ✅ | 12.2.4 | Map API error strings to toasts (group thread, history-only inbox, forbidden, invalid E.164, etc.). | `VoiceApiError` + Alerts |
 | ⬜ | 12.2.5 | Device QA: outbound from Transportation QA (or any voice-enabled inbox) reaches real PSTN; `call_logs` shows outbound row; hang up completes cleanly. |
@@ -594,11 +596,11 @@ Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound
 
 | Status | # | Rule |
 |--------|---|------|
-| ✅ | 12.3.1 | Calls screen: list up to 200 `call_logs` (RLS / approved access); columns parity — when, inbox, direction, contact, agent, status, duration, thread link. | `/(app)/calls` + `CallLogRow` |
+| ✅ | 12.3.1 | Calls screen: list up to 200 `call_logs` (RLS / approved access); columns parity — when, inbox, direction, contact, agent, status, duration, thread link. | `/(app)/calls` — WhatsApp-style Recent list + detail sheet (metadata); card table replaced 2026-08-03 |
 | ✅ | 12.3.2 | Deep link row → `/inbox` with `inbox` + `thread` when `thread_id` set. | row opens `/(app)/inbox/[threadId]` |
 | ✅ | 12.3.3 | Missed badge: poll `GET /api/dev-console/voice-pilot/missed-count?since=` (~90s + on foreground). | `MissedCallsProvider` |
 | ✅ | 12.3.4 | Persist last-seen (`tav-voice:calls-last-seen-at`) in AsyncStorage/SecureStore; write when opening Calls screen. | `calls-last-seen.ts` |
-| ✅ | 12.3.5 | Highlight missed inbound (`missed` \| `no-answer` \| `busy`); nav entry from user menu (skip assignments admin UI on mobile). | amber row + menu badge |
+| ✅ | 12.3.5 | Highlight missed inbound (`missed` \| `no-answer` \| `busy`); nav entry from user menu (skip assignments admin UI on mobile). | red name + direction label; Calls tab badge |
 
 ### Step 12.4 — Inbound ringing (follow-on)
 
@@ -632,7 +634,7 @@ Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound
 2. Global search + snippets
 3. Conversation side panel / custom fields
 4. Full contacts CRUD + bundles
-5. Internal chat (`/chat`) — **required before Phase 11 Part B**; may land as Phase 11.3
+5. Internal chat (`/chat`) — 🟡 mobile tab shipped (DMs, groups, images); reactions/voice notes deferred
 6. Voice messaging (inbox MMS audio + chat voice notes) — ⏸ deferred on mobile; see Phase 11 note
 7. ~~Voice calls~~ → **Phase 12** (outbound first; inbound = 12.4)
 8. Bug report modal

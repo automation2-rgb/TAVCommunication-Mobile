@@ -22,6 +22,7 @@ export type CallLog = {
   duration_seconds: number | null;
   inbox_display_name?: string | null;
   agent_display_name?: string | null;
+  contact_display_name?: string | null;
 };
 
 export type VoiceConnectParams = {

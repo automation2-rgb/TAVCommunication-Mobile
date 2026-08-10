@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { InboxIconTile } from '@/components/inbox/inbox-icon-tile';
+import { UnreadCountBadge } from '@/components/inbox/unread-count-badge';
 import { tavColors, tavLayout, tavShadows } from '@/lib/theme';
 import type { Inbox } from '@/types/messaging';
 
@@ -55,11 +56,7 @@ export function InboxSwitcherSheet({
                 <Text style={[styles.rowTitle, selected && styles.rowTitleSelected]}>{inbox.display_name}</Text>
                 <Text style={styles.rowMeta}>{formatPhoneLabel(inbox.twilio_phone_e164)}</Text>
               </View>
-              {unread > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
-                </View>
-              ) : null}
+              <UnreadCountBadge count={unread} />
               {selected ? <Check color={tavColors.blue} size={20} strokeWidth={2.5} /> : null}
             </Pressable>
           );
@@ -118,19 +115,5 @@ const styles = StyleSheet.create({
   rowMeta: {
     fontSize: 12,
     color: tavColors.zinc500,
-  },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    backgroundColor: tavColors.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: tavColors.white,
   },
 });

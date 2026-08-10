@@ -1,36 +1,57 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ContactAvatar } from '@/components/avatars/contact-avatar';
+import { UserAvatar } from '@/components/avatars/user-avatar';
 import { isValidE164Phone } from '@/lib/phone/e164';
-import { pressScaleStyle, tavColors } from '@/lib/theme';
+import { tavColors, tavLayout } from '@/lib/theme';
 import type { ContactDirectoryRow } from '@/types/messaging';
 
 type ContactRowProps = {
   contact: ContactDirectoryRow;
   badge?: string | null;
   onPress: (contact: ContactDirectoryRow) => void;
+  disabled?: boolean;
 };
 
-export function ContactRow({ contact, badge, onPress }: ContactRowProps) {
+export const ContactRow = memo(function ContactRow({
+  contact,
+  badge,
+  onPress,
+  disabled = false,
+}: ContactRowProps) {
   const phone = contact.phone_e164?.trim() ?? '';
-  const canMessage = isValidE164Phone(phone);
+  const hasPhone = isValidE164Phone(phone);
   const title = contact.display_name?.trim() || phone || 'Unknown';
+  const isTeamContact = contact.source === 'team';
+  const isDisabled = disabled || (!isTeamContact && !hasPhone);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: !canMessage }}
-      disabled={!canMessage}
+      accessibilityState={{ disabled: isDisabled }}
+      delayPressIn={100}
+      disabled={isDisabled}
       onPress={() => {
         onPress(contact);
       }}
       style={({ pressed }) => [
         styles.row,
-        pressed && canMessage && styles.rowPressed,
-        !canMessage && styles.rowDisabled,
-        canMessage && pressScaleStyle(pressed),
+        pressed && !isDisabled && styles.rowPressed,
+        isDisabled && styles.rowDisabled,
       ]}>
-      <ContactAvatar displayName={contact.display_name} phoneE164={phone} size="md" />
+      {isTeamContact ? (
+        <UserAvatar
+          avatarStoragePath={contact.avatar_storage_path}
+          displayName={contact.display_name}
+          email={null}
+          phoneE164={phone}
+          size={tavLayout.avatarMd}
+          variant="contact"
+        />
+      ) : (
+        <ContactAvatar displayName={contact.display_name} phoneE164={phone} size="md" />
+      )}
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text numberOfLines={1} style={styles.title}>
@@ -61,7 +82,7 @@ export function ContactRow({ contact, badge, onPress }: ContactRowProps) {
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {

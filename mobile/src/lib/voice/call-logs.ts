@@ -4,9 +4,28 @@ import type { CallLog } from '@/types/voice';
 const CALL_LOG_COLUMNS =
   'id, direction, inbox_id, thread_id, customer_e164, agent_user_id, status, started_at, ended_at, duration_seconds';
 
-type CallLogRow = Omit<CallLog, 'inbox_display_name' | 'agent_display_name'> & {
+type CallLogRow = Omit<CallLog, 'inbox_display_name' | 'agent_display_name' | 'contact_display_name'> & {
   inboxes?: { display_name: string | null } | { display_name: string | null }[] | null;
 };
+
+async function fetchThreadDisplayNames(threadIds: string[]): Promise<Record<string, string | null>> {
+  if (threadIds.length === 0) {
+    return {};
+  }
+
+  const { data, error } = await supabase.from('threads').select('id, display_name').in('id', threadIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const map: Record<string, string | null> = {};
+  for (const row of data ?? []) {
+    map[row.id as string] = (row.display_name as string | null) ?? null;
+  }
+
+  return map;
+}
 
 async function fetchAgentNames(userIds: string[]): Promise<Record<string, string | null>> {
   if (userIds.length === 0) {
@@ -27,7 +46,11 @@ async function fetchAgentNames(userIds: string[]): Promise<Record<string, string
   return map;
 }
 
-function mapCallLogRow(row: CallLogRow, agentNames: Record<string, string | null>): CallLog {
+function mapCallLogRow(
+  row: CallLogRow,
+  agentNames: Record<string, string | null>,
+  threadNames: Record<string, string | null>,
+): CallLog {
   return {
     id: row.id,
     direction: row.direction,
@@ -43,6 +66,7 @@ function mapCallLogRow(row: CallLogRow, agentNames: Record<string, string | null
       ? (row.inboxes[0]?.display_name ?? null)
       : (row.inboxes?.display_name ?? null),
     agent_display_name: row.agent_user_id ? (agentNames[row.agent_user_id] ?? null) : null,
+    contact_display_name: row.thread_id ? (threadNames[row.thread_id] ?? null) : null,
   };
 }
 
@@ -59,7 +83,11 @@ export async function fetchCallLogs(limit = 200): Promise<CallLog[]> {
 
   const rows = (data ?? []) as unknown as CallLogRow[];
   const agentIds = [...new Set(rows.map((row) => row.agent_user_id).filter(Boolean))] as string[];
-  const agentNames = await fetchAgentNames(agentIds);
+  const threadIds = [...new Set(rows.map((row) => row.thread_id).filter(Boolean))] as string[];
+  const [agentNames, threadNames] = await Promise.all([
+    fetchAgentNames(agentIds),
+    fetchThreadDisplayNames(threadIds),
+  ]);
 
-  return rows.map((row) => mapCallLogRow(row, agentNames));
+  return rows.map((row) => mapCallLogRow(row, agentNames, threadNames));
 }

@@ -15,22 +15,21 @@ import { getEmptyStateForTab, InboxEmptyState } from '@/components/inbox/empty-s
 import { InboxHeader } from '@/components/inbox/inbox-header';
 import { InboxSwitcherSheet } from '@/components/inbox/inbox-switcher-sheet';
 import { RequestInboxAccessPanel } from '@/components/inbox/request-inbox-access-panel';
-import { ThreadRow } from '@/components/inbox/thread-row';
+import { SwipeableThreadRow } from '@/components/inbox/swipeable-thread-row';
 import { ThreadTabs } from '@/components/inbox/thread-tabs';
-import { UserMenuSheet } from '@/components/inbox/user-menu-sheet';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
 import { useInboxThreads } from '@/hooks/use-inbox-threads';
 import { fetchInboxUnreadCount } from '@/lib/messaging/inbox-unread';
 import { markThreadUnread, upsertThreadRead } from '@/lib/messaging/thread-reads';
 import { markThreadDone, reopenThread } from '@/lib/messaging/thread-archive';
 import { isThreadUnread } from '@/lib/messaging/unread';
-import { useAuth } from '@/lib/auth/auth-provider';
 import { tavColors } from '@/lib/theme';
+import { useAuth } from '@/lib/auth/auth-provider';
 import type { Thread } from '@/types/messaging';
 
 export default function InboxListScreen() {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const userId = session?.user.id;
   const {
     inboxes,
@@ -51,7 +50,6 @@ export default function InboxListScreen() {
   });
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
 
@@ -89,6 +87,27 @@ export default function InboxListScreen() {
     await Promise.all([refreshInboxes(), refresh()]);
     setRefreshing(false);
   }, [refresh, refreshInboxes]);
+
+  const handleSwipeThreadAction = useCallback(
+    async (thread: Thread) => {
+      const isDone = Boolean(thread.archived_at);
+
+      try {
+        if (isDone) {
+          await reopenThread(thread.id);
+        } else {
+          await markThreadDone(thread.id);
+        }
+        await refresh();
+      } catch (actionError) {
+        Alert.alert(
+          isDone ? 'Unable to reopen' : 'Unable to mark done',
+          actionError instanceof Error ? actionError.message : 'Please try again.',
+        );
+      }
+    },
+    [refresh],
+  );
 
   const openThreadActions = useCallback(
     (thread: Thread) => {
@@ -164,17 +183,9 @@ export default function InboxListScreen() {
       <View style={styles.screen}>
         <InboxHeader
           inboxName="Inbox"
-          userDisplayName={profile?.display_name}
-          userEmail={profile?.email ?? session?.user.email}
           onOpenInboxSwitcher={() => {}}
-          onOpenUserMenu={() => setMenuOpen(true)}
         />
         <RequestInboxAccessPanel />
-        <UserMenuSheet
-          visible={menuOpen}
-          displayName={profile?.display_name}
-          onClose={() => setMenuOpen(false)}
-        />
       </View>
     );
   }
@@ -184,10 +195,7 @@ export default function InboxListScreen() {
       <InboxHeader
         inboxName={activeInbox?.display_name ?? 'Inbox'}
         inboxUnreadCount={unreadCount}
-        userDisplayName={profile?.display_name}
-        userEmail={profile?.email ?? session?.user.email}
         onOpenInboxSwitcher={() => setSwitcherOpen(true)}
-        onOpenUserMenu={() => setMenuOpen(true)}
         onCompose={() => {
           router.push('/(app)/inbox/compose');
         }}
@@ -215,15 +223,17 @@ export default function InboxListScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={listHeader}
           renderItem={({ item }) => (
-            <ThreadRow
+            <SwipeableThreadRow
               thread={item}
               readAt={readMap.get(item.id)}
+              swipeAction={activeTab === 'done' ? 'reopen' : 'mark-done'}
               onPress={() => {
                 router.push(`/(app)/inbox/${item.id}` as Href);
               }}
               onLongPress={() => {
                 openThreadActions(item);
               }}
+              onSwipeAction={() => handleSwipeThreadAction(item)}
             />
           )}
           ListEmptyComponent={
@@ -246,12 +256,6 @@ export default function InboxListScreen() {
         unreadCounts={unreadCounts}
         onSelect={setActiveInboxId}
         onClose={() => setSwitcherOpen(false)}
-      />
-
-      <UserMenuSheet
-        visible={menuOpen}
-        displayName={profile?.display_name}
-        onClose={() => setMenuOpen(false)}
       />
     </View>
   );

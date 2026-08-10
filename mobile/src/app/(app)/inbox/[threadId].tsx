@@ -6,10 +6,9 @@ import { Composer, type ComposerSendPayload } from '@/components/inbox/composer'
 import { ConversationHeader } from '@/components/inbox/conversation-header';
 import { EditDisplayNameModal } from '@/components/inbox/edit-display-name-modal';
 import { MessageList } from '@/components/inbox/message-list';
-import { InCallOverlay } from '@/components/voice/in-call-overlay';
 import { ThreadVoiceCallControls } from '@/components/voice/thread-voice-call-controls';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
-import { useVoiceClient } from '@/contexts/voice-client';
+import { useVoiceClientActions } from '@/contexts/voice-client';
 import { useThreadMessages } from '@/hooks/use-thread-messages';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -34,7 +33,7 @@ export default function ConversationScreen() {
   const { session, profile } = useAuth();
   const userId = session?.user.id;
   const { activeInbox } = useInboxWorkspace();
-  const { placeOutboundCall, ensureReady } = useVoiceClient();
+  const { placeOutboundCall, ensureReady } = useVoiceClientActions();
 
   const [thread, setThread] = useState<Thread | null>(null);
   const [readAt, setReadAt] = useState<string | null>(null);
@@ -266,8 +265,6 @@ export default function ConversationScreen() {
           canCall ? <ThreadVoiceCallControls onCall={handlePlaceCall} /> : undefined
         }
       />
-
-      <InCallOverlay contactLabel={contactLabel} />
 
       <View style={styles.messagesPane}>
         <MessageList

@@ -12,6 +12,8 @@ type SupportScreenShellProps = {
   onBack?: () => void;
   headerRight?: ReactNode;
   padded?: boolean;
+  showBack?: boolean;
+  backLabel?: string;
 };
 
 export function SupportScreenShell({
@@ -20,31 +22,39 @@ export function SupportScreenShell({
   onBack,
   headerRight,
   padded = true,
+  showBack = false,
+  backLabel = 'Back',
 }: SupportScreenShellProps) {
   const router = useRouter();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(app)/profile');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          onPress={() => {
-            if (onBack) {
-              onBack();
-              return;
-            }
-            if (router.canGoBack()) {
-              router.back();
-              return;
-            }
-            router.replace('/(app)/inbox');
-          }}
-          style={({ pressed }) => [styles.backButton, pressScaleStyle(pressed)]}>
-          <ArrowLeft color={tavColors.zinc700} size={18} strokeWidth={2.2} />
-          <Text style={styles.backText}>Inbox</Text>
-        </Pressable>
+        {showBack ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={handleBack}
+            style={({ pressed }) => [styles.backButton, pressScaleStyle(pressed)]}>
+            <ArrowLeft color={tavColors.zinc700} size={18} strokeWidth={2.2} />
+            <Text style={styles.backText}>{backLabel}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.backButton} />
+        )}
         <Text numberOfLines={1} style={styles.title}>
           {title}
         </Text>

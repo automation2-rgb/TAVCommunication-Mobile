@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -20,6 +21,9 @@ type MissedCallsContextValue = {
 };
 
 const MissedCallsContext = createContext<MissedCallsContextValue | null>(null);
+const MissedCallsActionsContext = createContext<Pick<MissedCallsContextValue, 'refreshMissedCount'> | null>(
+  null,
+);
 
 export function MissedCallsProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const [unseenMissedCount, setUnseenMissedCount] = useState(0);
@@ -62,21 +66,42 @@ export function MissedCallsProvider({ children, enabled }: { children: ReactNode
     };
   }, [enabled, refreshMissedCount]);
 
-  const value = useMemo(
+  const refreshRef = useRef(refreshMissedCount);
+  refreshRef.current = refreshMissedCount;
+
+  const stableActions = useMemo(
     () => ({
-      unseenMissedCount,
-      refreshMissedCount,
+      refreshMissedCount: () => refreshRef.current(),
     }),
+    [],
+  );
+
+  const value = useMemo(
+    () => ({ unseenMissedCount, refreshMissedCount }),
     [refreshMissedCount, unseenMissedCount],
   );
 
-  return <MissedCallsContext.Provider value={value}>{children}</MissedCallsContext.Provider>;
+  return (
+    <MissedCallsActionsContext.Provider value={stableActions}>
+      <MissedCallsContext.Provider value={value}>{children}</MissedCallsContext.Provider>
+    </MissedCallsActionsContext.Provider>
+  );
 }
 
 export function useMissedCalls() {
   const context = useContext(MissedCallsContext);
   if (!context) {
     throw new Error('useMissedCalls must be used within MissedCallsProvider');
+  }
+
+  return context;
+}
+
+/** Stable refresh action that does not re-render when the badge count changes. */
+export function useMissedCallsActions() {
+  const context = useContext(MissedCallsActionsContext);
+  if (!context) {
+    throw new Error('useMissedCallsActions must be used within MissedCallsProvider');
   }
 
   return context;
