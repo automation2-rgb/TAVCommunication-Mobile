@@ -9,6 +9,7 @@ import { InboxWorkspaceProvider } from '@/contexts/inbox-workspace';
 import { MissedCallsProvider } from '@/contexts/missed-calls';
 import { TabBarVisibilityProvider } from '@/contexts/tab-bar-visibility';
 import { VoiceClientProvider } from '@/contexts/voice-client';
+import { WorkspaceSearchProvider } from '@/contexts/workspace-search';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { tavColors } from '@/lib/theme';
 
@@ -22,24 +23,26 @@ function AppTabs() {
         <ChatAttentionProvider enabled={voiceEnabled}>
           <ChatConversationsProvider enabled={Boolean(session)}>
             <InboxWorkspaceProvider userId={session?.user.id}>
-              <TabBarVisibilityProvider>
-                <PushNotificationBootstrap />
-                <Tabs
-                  tabBar={(props) => <AppTabBar {...props} />}
-                  screenOptions={{
-                    headerShown: false,
-                    tabBarStyle: { backgroundColor: tavColors.white },
-                  }}>
-                  <Tabs.Screen name="inbox" options={{ title: 'Text' }} />
-                  <Tabs.Screen name="chat" options={{ title: 'Chats' }} />
-                  <Tabs.Screen name="calls/index" options={{ title: 'Calls' }} />
-                  <Tabs.Screen name="contacts/index" options={{ title: 'Contacts' }} />
-                  <Tabs.Screen name="profile/index" options={{ title: 'Profile' }} />
-                  <Tabs.Screen name="settings/index" options={{ href: null }} />
-                  <Tabs.Screen name="help/index" options={{ href: null }} />
-                </Tabs>
-                <InCallOverlay />
-              </TabBarVisibilityProvider>
+              <WorkspaceSearchProvider>
+                <TabBarVisibilityProvider>
+                  <PushNotificationBootstrap />
+                  <Tabs
+                    tabBar={(props) => <AppTabBar {...props} />}
+                    screenOptions={{
+                      headerShown: false,
+                      tabBarStyle: { backgroundColor: tavColors.white },
+                    }}>
+                    <Tabs.Screen name="inbox" options={{ title: 'Text' }} />
+                    <Tabs.Screen name="chat" options={{ title: 'Chats' }} />
+                    <Tabs.Screen name="calls/index" options={{ title: 'Calls' }} />
+                    <Tabs.Screen name="contacts/index" options={{ title: 'Contacts' }} />
+                    <Tabs.Screen name="profile/index" options={{ title: 'Profile' }} />
+                    <Tabs.Screen name="settings/index" options={{ href: null }} />
+                    <Tabs.Screen name="help/index" options={{ href: null }} />
+                  </Tabs>
+                  <InCallOverlay />
+                </TabBarVisibilityProvider>
+              </WorkspaceSearchProvider>
             </InboxWorkspaceProvider>
           </ChatConversationsProvider>
         </ChatAttentionProvider>

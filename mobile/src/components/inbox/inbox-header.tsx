@@ -9,6 +9,7 @@ type InboxHeaderProps = {
   inboxUnreadCount?: number;
   onOpenInboxSwitcher: () => void;
   onCompose?: () => void;
+  onOpenSearch?: () => void;
 };
 
 export function InboxHeader({
@@ -16,6 +17,7 @@ export function InboxHeader({
   inboxUnreadCount = 0,
   onOpenInboxSwitcher,
   onCompose,
+  onOpenSearch,
 }: InboxHeaderProps) {
   const insets = useSafeAreaInsets();
 
@@ -43,8 +45,13 @@ export function InboxHeader({
         ) : null}
         <Pressable
           accessibilityRole="button"
-          disabled
-          style={[styles.iconButton, styles.iconDisabled]}>
+          disabled={!onOpenSearch}
+          onPress={onOpenSearch}
+          style={({ pressed }) => [
+            styles.iconButton,
+            !onOpenSearch && styles.iconDisabled,
+            pressScaleStyle(pressed),
+          ]}>
           <Search color={tavColors.zinc600} size={20} strokeWidth={2.2} />
         </Pressable>
       </View>

@@ -14,7 +14,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-08-03 · **Current focus:** Calls tab makeover (WhatsApp-style layout + US keypad); Phase 12 voice device QA
+**Last updated:** 2026-08-11 · **Current focus:** Global workspace search (mobile parity); device QA for search + calls + chat
 
 | Phase | Name | Status |
 |-------|------|--------|
@@ -23,7 +23,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 | 2 | Project scaffold | 🟡 ~95% — bottom tab nav (Text/Chats/Calls/Contacts/Profile); Geist fonts deferred |
 | 3 | Authentication | ✅ Done — Google sign-in verified on Android dev build |
 | 4 | Data layer | ✅ Done — libs + hooks; inbox E2E verified |
-| 5 | Inbox UI | ✅ Done — send/receive/mark done verified on device |
+| 5 | Inbox UI | 🟡 Partial — global search modal wired; device QA pending |
 | 6 | MMS | ✅ Done — Android device retest passed 2026-07-10 |
 | 7 | Push notifications | ✅ Done — register, background push, deep link verified on Android |
 | 8 | Supporting screens | 🟡 Partial — profile photos + Settings/Help under Profile tab; bottom tab nav |
@@ -337,7 +337,7 @@ Reference: `flows/02-inbox-and-direct-messaging.md`, mobile sections in UI docs.
 | Status | # | Rule |
 |--------|---|------|
 | ✅ | 5.1.1 | Inbox uses **own header** (no workspace hamburger on inbox per docs). |
-| ✅ | 5.1.2 | Header: inbox name (opens switcher sheet), search icon (v1: disabled or placeholder), user menu. |
+| ✅ | 5.1.2 | Header: inbox name (opens switcher sheet), search icon opens global search modal, user menu. | `SearchModal` + `WorkspaceSearchProvider` — spec [`docs/webapp-search-flow.md`](./docs/webapp-search-flow.md) |
 | ✅ | 5.1.3 | Drawer/menu for other routes: Contacts, Profile, Settings, Help, Sign out. |
 | ✅ | 5.1.4 | Skip Calls, Chat, Dev dashboard in v1 nav. |
 
@@ -631,7 +631,7 @@ Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound
 ## Post-v1 backlog (ordered)
 
 1. Group messaging (app_group + native MMS)
-2. Global search + snippets
+2. Global search + snippets — 🟡 search shipped (threads/messages/contacts via `GET /api/search`); snippets deferred
 3. Conversation side panel / custom fields
 4. Full contacts CRUD + bundles
 5. Internal chat (`/chat`) — 🟡 mobile tab shipped (DMs, groups, images); reactions/voice notes deferred
@@ -680,6 +680,7 @@ Backend voice APIs already accept **Bearer JWT** (`/api/voice/token`, `/outbound
 | Voice calls (detailed) | `docs/calls-flow.md` |
 | Voice calls (skeleton) | `flows/08-voice-calls.md` |
 | Internal chat | `flows/09-internal-chat.md` |
+| Workspace search (web parity) | `docs/webapp-search-flow.md` |
 
 ---
 

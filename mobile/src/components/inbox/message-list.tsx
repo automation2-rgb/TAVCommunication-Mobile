@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { InboxEmptyState } from '@/components/inbox/empty-state';
@@ -17,6 +17,7 @@ type MessageListProps = {
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadOlder: () => void;
+  highlightMessageId?: string | null;
 };
 
 type MessageListItem =
@@ -63,7 +64,9 @@ export function MessageList({
   isLoadingMore,
   hasMore,
   onLoadOlder,
+  highlightMessageId = null,
 }: MessageListProps) {
+  const listRef = useRef<FlatList<MessageListItem>>(null);
   const messageIds = useMemo(
     () => messages.map((message) => message.id).filter((id) => !id.startsWith('optimistic-')),
     [messages],
@@ -71,6 +74,31 @@ export function MessageList({
   const { byMessageId } = useMessageAttachments(messageIds);
 
   const listItems = useMemo(() => buildListItems(messages), [messages]);
+
+  useEffect(() => {
+    if (!highlightMessageId) {
+      return;
+    }
+
+    const index = listItems.findIndex(
+      (item) => item.kind === 'message' && item.message.id === highlightMessageId,
+    );
+    if (index < 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [highlightMessageId, listItems]);
 
   if (isLoading) {
     return (
@@ -92,6 +120,7 @@ export function MessageList({
 
   return (
     <FlatList
+      ref={listRef}
       inverted
       data={listItems}
       keyExtractor={(item) => item.id}
@@ -111,12 +140,22 @@ export function MessageList({
             attachments={byMessageId.get(item.message.id)}
             pendingAttachments={pendingAttachmentsByMessageId[item.message.id]}
             compactTop={item.compactTop}
+            highlighted={item.message.id === highlightMessageId}
             isSelf={item.message.direction === 'outbound' && item.message.sent_by === currentUserId}
             message={item.message}
           />
         );
       }}
       contentContainerStyle={styles.listContent}
+      onScrollToIndexFailed={(info) => {
+        setTimeout(() => {
+          listRef.current?.scrollToIndex({
+            index: info.index,
+            animated: true,
+            viewPosition: 0.5,
+          });
+        }, 100);
+      }}
       onEndReached={() => {
         if (hasMore && !isLoadingMore) {
           onLoadOlder();

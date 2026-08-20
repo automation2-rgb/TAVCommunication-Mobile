@@ -18,6 +18,7 @@ import { RequestInboxAccessPanel } from '@/components/inbox/request-inbox-access
 import { SwipeableThreadRow } from '@/components/inbox/swipeable-thread-row';
 import { ThreadTabs } from '@/components/inbox/thread-tabs';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { useWorkspaceSearch } from '@/contexts/workspace-search';
 import { useInboxThreads } from '@/hooks/use-inbox-threads';
 import { fetchInboxUnreadCount } from '@/lib/messaging/inbox-unread';
 import { markThreadUnread, upsertThreadRead } from '@/lib/messaging/thread-reads';
@@ -42,6 +43,7 @@ export default function InboxListScreen() {
     inboxesError,
     refreshInboxes,
   } = useInboxWorkspace();
+  const { openSearch } = useWorkspaceSearch();
 
   const { threads, readMap, unreadCount, isLoading, error, refresh, setReadMap } = useInboxThreads({
     userId,
@@ -199,6 +201,7 @@ export default function InboxListScreen() {
         onCompose={() => {
           router.push('/(app)/inbox/compose');
         }}
+        onOpenSearch={openSearch}
       />
 
       {inboxesError ? (

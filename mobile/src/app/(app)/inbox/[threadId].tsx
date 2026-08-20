@@ -1,5 +1,5 @@
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { Composer, type ComposerSendPayload } from '@/components/inbox/composer';
@@ -24,12 +24,17 @@ import { markThreadUnread, upsertThreadRead, fetchThreadReads } from '@/lib/mess
 import { updateThreadDisplayName } from '@/lib/messaging/update-thread';
 import { upsertMessage } from '@/lib/messaging/messages';
 import { isThreadUnread } from '@/lib/messaging/unread';
+import { SEARCH_HIGHLIGHT_MS, SEARCH_MAX_HIGHLIGHT_LOAD_ATTEMPTS } from '@/lib/search/search-display';
 import { tavColors } from '@/lib/theme';
 import type { Message, Thread } from '@/types/messaging';
 
 export default function ConversationScreen() {
   const router = useRouter();
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId, messageId: messageIdParam } = useLocalSearchParams<{
+    threadId: string;
+    messageId?: string | string[];
+  }>();
+  const pendingMessageId = Array.isArray(messageIdParam) ? messageIdParam[0] : messageIdParam;
   const { session, profile } = useAuth();
   const userId = session?.user.id;
   const { activeInbox } = useInboxWorkspace();
@@ -43,6 +48,11 @@ export default function ConversationScreen() {
   >({});
   const [isSending, setIsSending] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  const highlightRunRef = useRef(0);
+  const messagesRef = useRef<Message[]>([]);
+  const hasMoreRef = useRef(false);
+  const loadOlderRef = useRef<(() => Promise<void>) | null>(null);
 
   const {
     messages,
@@ -77,7 +87,48 @@ export default function ConversationScreen() {
 
   useEffect(() => {
     setLocalMessages(messages);
+    messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  useEffect(() => {
+    loadOlderRef.current = loadOlder;
+  }, [loadOlder]);
+
+  useEffect(() => {
+    if (!pendingMessageId || isLoading) {
+      return;
+    }
+
+    const runId = ++highlightRunRef.current;
+
+    void (async () => {
+      for (let attempt = 0; attempt < SEARCH_MAX_HIGHLIGHT_LOAD_ATTEMPTS; attempt += 1) {
+        if (highlightRunRef.current !== runId) {
+          return;
+        }
+
+        const found = messagesRef.current.some((message) => message.id === pendingMessageId);
+        if (found) {
+          setHighlightMessageId(pendingMessageId);
+          setTimeout(() => {
+            setHighlightMessageId(null);
+          }, SEARCH_HIGHLIGHT_MS);
+          router.setParams({ messageId: undefined });
+          return;
+        }
+
+        if (!hasMoreRef.current || !loadOlderRef.current) {
+          break;
+        }
+
+        await loadOlderRef.current();
+      }
+    })();
+  }, [isLoading, pendingMessageId, router, threadId]);
 
   const mergedMessages = useMemo(() => localMessages, [localMessages]);
 
@@ -274,6 +325,7 @@ export default function ConversationScreen() {
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}
+          highlightMessageId={highlightMessageId}
           onLoadOlder={() => {
             void loadOlder();
           }}

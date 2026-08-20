@@ -24,6 +24,7 @@ type MessageBubbleProps = {
   pendingAttachments?: PendingAttachmentPreview[];
   isSelf: boolean;
   compactTop?: boolean;
+  highlighted?: boolean;
 };
 
 function PendingAttachmentThumbnail({
@@ -57,6 +58,7 @@ export function MessageBubble({
   pendingAttachments = [],
   isSelf,
   compactTop = false,
+  highlighted = false,
 }: MessageBubbleProps) {
   const outbound = message.direction === 'outbound';
   const body = message.body?.trim() || '';
@@ -116,6 +118,7 @@ export function MessageBubble({
           styles.row,
           outbound ? styles.rowOutbound : styles.rowInbound,
           compactTop && styles.rowCompactTop,
+          highlighted && styles.rowHighlighted,
         ]}>
         {outbound ? (
           <LinearGradient
@@ -171,6 +174,12 @@ const styles = StyleSheet.create({
   },
   rowInbound: {
     alignItems: 'flex-start',
+  },
+  rowHighlighted: {
+    backgroundColor: 'rgba(10, 132, 255, 0.08)',
+    borderRadius: 16,
+    marginHorizontal: 8,
+    paddingHorizontal: 8,
   },
   bubble: {
     paddingHorizontal: 16,
