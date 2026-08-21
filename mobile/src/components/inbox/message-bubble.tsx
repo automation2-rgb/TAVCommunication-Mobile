@@ -1,17 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AttachmentLightbox } from '@/components/inbox/attachment-lightbox';
 import { AttachmentThumbnail } from '@/components/inbox/attachment-thumbnail';
 import { MessageStatusIcon } from '@/components/inbox/message-status-icon';
 import { formatMessageTime } from '@/lib/format-time';
 import type { PendingAttachmentPreview } from '@/lib/messaging/send-message';
+import { isFailedMessageStatus } from '@/lib/messaging/send-message';
 import { isImageMimeType } from '@/lib/messaging/mms-policy';
 import {
   inboundBubbleRadii,
   outboundBubbleRadii,
+  pressScaleStyle,
   tavColors,
   tavLayout,
   tavTypography,
@@ -25,6 +27,9 @@ type MessageBubbleProps = {
   isSelf: boolean;
   compactTop?: boolean;
   highlighted?: boolean;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+  onLongPress?: () => void;
 };
 
 function PendingAttachmentThumbnail({
@@ -59,6 +64,9 @@ export function MessageBubble({
   isSelf,
   compactTop = false,
   highlighted = false,
+  onRetry,
+  isRetrying = false,
+  onLongPress,
 }: MessageBubbleProps) {
   const outbound = message.direction === 'outbound';
   const body = message.body?.trim() || '';
@@ -72,7 +80,8 @@ export function MessageBubble({
   );
 
   const showPending = sortedAttachments.length === 0 && pendingAttachments.length > 0;
-  const failed = ['failed', 'undelivered'].includes(String(message.status).toLowerCase());
+  const failed = isFailedMessageStatus(message.status);
+  const showRetry = failed && outbound && Boolean(onRetry);
 
   const bubbleContent = (
     <>
@@ -108,7 +117,50 @@ export function MessageBubble({
           {timeLabel ? <Text style={styles.outboundTime}>{timeLabel}</Text> : null}
         </View>
       ) : null}
+
+      {showRetry ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry sending message"
+          disabled={isRetrying}
+          onPress={onRetry}
+          style={({ pressed }) => [styles.retryPill, pressScaleStyle(pressed), isRetrying && styles.retryPillDisabled]}>
+          {isRetrying ? (
+            <ActivityIndicator color={tavColors.blue} size="small" />
+          ) : (
+            <Text style={styles.retryLabel}>Retry</Text>
+          )}
+        </Pressable>
+      ) : null}
     </>
+  );
+
+  const bubbleShell = outbound ? (
+    <LinearGradient
+      colors={[
+        tavColors.bubbleOutGradientTop,
+        tavColors.bubbleOutGradientMid,
+        tavColors.bubbleOutGradientBottom,
+      ]}
+      locations={[0, 0.42, 1]}
+      style={[
+        styles.bubble,
+        outboundBubbleRadii(),
+        failed && styles.bubbleFailed,
+        { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
+      ]}>
+      {bubbleContent}
+    </LinearGradient>
+  ) : (
+    <View
+      style={[
+        styles.bubble,
+        styles.bubbleInbound,
+        inboundBubbleRadii(),
+        { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
+      ]}>
+      {bubbleContent}
+    </View>
   );
 
   return (
@@ -120,32 +172,17 @@ export function MessageBubble({
           compactTop && styles.rowCompactTop,
           highlighted && styles.rowHighlighted,
         ]}>
-        {outbound ? (
-          <LinearGradient
-            colors={[
-              tavColors.bubbleOutGradientTop,
-              tavColors.bubbleOutGradientMid,
-              tavColors.bubbleOutGradientBottom,
-            ]}
-            locations={[0, 0.42, 1]}
-            style={[
-              styles.bubble,
-              outboundBubbleRadii(),
-              failed && styles.bubbleFailed,
-              { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
-            ]}>
-            {bubbleContent}
-          </LinearGradient>
+        {onLongPress ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint="Opens message actions"
+            delayLongPress={400}
+            onLongPress={onLongPress}
+            style={({ pressed }) => [pressed && styles.bubblePressed]}>
+            {bubbleShell}
+          </Pressable>
         ) : (
-          <View
-            style={[
-              styles.bubble,
-              styles.bubbleInbound,
-              inboundBubbleRadii(),
-              { maxWidth: `${tavLayout.maxBubbleWidthRatio * 100}%` as `${number}%` },
-            ]}>
-            {bubbleContent}
-          </View>
+          bubbleShell
         )}
       </View>
 
@@ -200,6 +237,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: tavColors.red600,
   },
+  bubblePressed: {
+    opacity: 0.92,
+  },
   body: {
     ...tavTypography.messageBody,
     color: tavColors.black,
@@ -218,6 +258,26 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 6,
     marginTop: 2,
+  },
+  retryPill: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    minHeight: 32,
+    minWidth: 72,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: tavColors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryPillDisabled: {
+    opacity: 0.7,
+  },
+  retryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tavColors.blue,
   },
   outboundTime: {
     fontSize: 10,

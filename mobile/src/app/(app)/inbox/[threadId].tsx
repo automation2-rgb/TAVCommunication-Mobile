@@ -1,4 +1,4 @@
-import { Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { Href, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
@@ -8,17 +8,21 @@ import { EditDisplayNameModal } from '@/components/inbox/edit-display-name-modal
 import { MessageList } from '@/components/inbox/message-list';
 import { ThreadVoiceCallControls } from '@/components/voice/thread-voice-call-controls';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { useInboxAttention } from '@/contexts/inbox-attention';
 import { useVoiceClientActions } from '@/contexts/voice-client';
 import { useThreadMessages } from '@/hooks/use-thread-messages';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   createOptimisticMessage,
   createPendingAttachmentPreviews,
+  pendingPreviewToComposerFile,
   sendDirectMessage,
   type PendingAttachmentPreview,
 } from '@/lib/messaging/send-message';
+import { openMessageActions } from '@/lib/messaging/open-message-actions';
 import { fetchThreadById, formatThreadTitle, resolveOutboundSendTarget } from '@/lib/messaging/threads';
-import { canPlaceThreadVoiceCall } from '@/lib/voice/voice-enabled';
+import { canPlaceThreadVoiceCall, isVoiceEnabledInbox } from '@/lib/voice/voice-enabled';
+import { resolveDirectThreadForPhone } from '@/lib/voice/resolve-call-target';
 import { markThreadDone, reopenThread } from '@/lib/messaging/thread-archive';
 import { markThreadUnread, upsertThreadRead, fetchThreadReads } from '@/lib/messaging/thread-reads';
 import { updateThreadDisplayName } from '@/lib/messaging/update-thread';
@@ -38,6 +42,7 @@ export default function ConversationScreen() {
   const { session, profile } = useAuth();
   const userId = session?.user.id;
   const { activeInbox } = useInboxWorkspace();
+  const { refreshUnreadCount: refreshTabUnreadCount } = useInboxAttention();
   const { placeOutboundCall, ensureReady } = useVoiceClientActions();
 
   const [thread, setThread] = useState<Thread | null>(null);
@@ -47,6 +52,7 @@ export default function ConversationScreen() {
     Record<string, PendingAttachmentPreview[]>
   >({});
   const [isSending, setIsSending] = useState(false);
+  const [retryingMessageId, setRetryingMessageId] = useState<string | null>(null);
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   const highlightRunRef = useRef(0);
@@ -84,6 +90,14 @@ export default function ConversationScreen() {
       setReadAt(reads[0]?.read_at ?? null);
     });
   }, [threadId, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        void refreshTabUnreadCount();
+      };
+    }, [refreshTabUnreadCount]),
+  );
 
   useEffect(() => {
     setLocalMessages(messages);
@@ -137,6 +151,46 @@ export default function ConversationScreen() {
   const isDone = Boolean(thread?.archived_at);
   const contactLabel = thread ? formatThreadTitle(thread) : 'Customer';
 
+  const reconcileSendSuccess = useCallback(
+    (messageId: string, result: Awaited<ReturnType<typeof sendDirectMessage>>) => {
+      setLocalMessages((current) =>
+        current.map((message) => {
+          if (message.id !== messageId) {
+            return message;
+          }
+          if (result.message) {
+            return { ...message, ...result.message, thread_id: result.threadId };
+          }
+          return { ...message, status: 'sent' };
+        }),
+      );
+      setPendingAttachmentsByMessageId((current) => {
+        const pending = current[messageId];
+        if (!pending?.length) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[messageId];
+
+        const savedMessageId = result.message?.id;
+        if (savedMessageId && savedMessageId !== messageId) {
+          next[savedMessageId] = pending.map((attachment) => ({
+            ...attachment,
+            id: attachment.id.replace(messageId, savedMessageId),
+          }));
+        }
+
+        return next;
+      });
+
+      if (result.threadId !== threadId) {
+        router.replace(`/(app)/inbox/${result.threadId}` as Href);
+      }
+    },
+    [router, threadId],
+  );
+
   const handleSend = useCallback(
     async ({ body, files }: ComposerSendPayload) => {
       if (!userId || !activeInbox?.id || !threadId) {
@@ -181,40 +235,7 @@ export default function ConversationScreen() {
           files,
         });
 
-        setLocalMessages((current) =>
-          current.map((message) => {
-            if (message.id !== optimistic.id) {
-              return message;
-            }
-            if (result.message) {
-              return { ...message, ...result.message, thread_id: result.threadId };
-            }
-            return { ...message, status: 'sent' };
-          }),
-        );
-        setPendingAttachmentsByMessageId((current) => {
-          const pending = current[optimistic.id];
-          if (!pending?.length) {
-            return current;
-          }
-
-          const next = { ...current };
-          delete next[optimistic.id];
-
-          const savedMessageId = result.message?.id;
-          if (savedMessageId && savedMessageId !== optimistic.id) {
-            next[savedMessageId] = pending.map((attachment) => ({
-              ...attachment,
-              id: attachment.id.replace(optimistic.id, savedMessageId),
-            }));
-          }
-
-          return next;
-        });
-
-        if (result.threadId !== threadId) {
-          router.replace(`/(app)/inbox/${result.threadId}` as Href);
-        }
+        reconcileSendSuccess(optimistic.id, result);
       } catch (error) {
         setLocalMessages((current) =>
           current.map((message) =>
@@ -228,7 +249,62 @@ export default function ConversationScreen() {
         setIsSending(false);
       }
     },
-    [activeInbox?.id, router, thread, threadId, userId],
+    [activeInbox?.id, reconcileSendSuccess, router, thread, threadId, userId],
+  );
+
+  const handleRetryMessage = useCallback(
+    async (message: Message) => {
+      if (!userId || !activeInbox?.id || !threadId || retryingMessageId) {
+        return;
+      }
+
+      const resolvedThread = thread ?? (await fetchThreadById(threadId));
+      if (!resolvedThread) {
+        return;
+      }
+
+      const target = resolveOutboundSendTarget(resolvedThread);
+      if (target.kind === 'unsupported') {
+        return;
+      }
+
+      const body = message.body?.trim() ?? '';
+      const pendingPreviews = pendingAttachmentsByMessageId[message.id] ?? [];
+      const files = pendingPreviews.map(pendingPreviewToComposerFile);
+
+      setRetryingMessageId(message.id);
+      setLocalMessages((current) =>
+        current.map((item) => (item.id === message.id ? { ...item, status: 'sending' } : item)),
+      );
+
+      try {
+        const result = await sendDirectMessage({
+          inboxId: activeInbox.id,
+          threadId: target.kind === 'thread' ? target.threadId : undefined,
+          toE164: target.kind === 'to' ? target.toE164 : undefined,
+          fallbackThreadId: threadId,
+          body,
+          files: files.length > 0 ? files : undefined,
+        });
+
+        reconcileSendSuccess(message.id, result);
+      } catch {
+        setLocalMessages((current) =>
+          current.map((item) => (item.id === message.id ? { ...item, status: 'failed' } : item)),
+        );
+      } finally {
+        setRetryingMessageId(null);
+      }
+    },
+    [
+      activeInbox?.id,
+      pendingAttachmentsByMessageId,
+      reconcileSendSuccess,
+      retryingMessageId,
+      thread,
+      threadId,
+      userId,
+    ],
   );
 
   const handlePlaceCall = useCallback(async () => {
@@ -244,6 +320,45 @@ export default function ConversationScreen() {
       contactLabel,
     });
   }, [activeInbox?.id, contactLabel, ensureReady, placeOutboundCall, thread]);
+
+  const handleLongPressMessage = useCallback(
+    (message: Message) => {
+      openMessageActions(
+        {
+          message,
+          threadCustomerE164: thread?.customer_e164,
+          voiceEnabled: isVoiceEnabledInbox(activeInbox),
+        },
+        {
+          onCall: async (phoneE164) => {
+            if (!activeInbox?.id) {
+              return;
+            }
+
+            try {
+              const callThreadId =
+                thread?.thread_kind === 'direct' && thread.customer_e164?.trim() === phoneE164
+                  ? thread.id
+                  : await resolveDirectThreadForPhone(activeInbox.id, phoneE164);
+              await ensureReady();
+              await placeOutboundCall({
+                threadId: callThreadId,
+                inboxId: activeInbox.id,
+                customerE164: phoneE164,
+                contactLabel,
+              });
+            } catch (error) {
+              Alert.alert(
+                'Unable to place call',
+                error instanceof Error ? error.message : 'Please try again.',
+              );
+            }
+          },
+        },
+      );
+    },
+    [activeInbox, contactLabel, ensureReady, placeOutboundCall, thread],
+  );
 
   const openOverflowMenu = useCallback(() => {
     if (!thread || !userId) {
@@ -329,6 +444,11 @@ export default function ConversationScreen() {
           onLoadOlder={() => {
             void loadOlder();
           }}
+          onRetryMessage={(message) => {
+            void handleRetryMessage(message);
+          }}
+          retryingMessageId={retryingMessageId}
+          onLongPressMessage={handleLongPressMessage}
         />
       </View>
 

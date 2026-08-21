@@ -18,7 +18,7 @@ import {
   getMicrophoneAccessStatus,
   type MicrophoneAccess,
 } from '@/lib/voice/microphone-permission';
-import type { VoicePhase } from '@/types/voice';
+import type { ActiveCallContext, VoicePhase } from '@/types/voice';
 
 type OutboundCallRequest = {
   threadId: string;
@@ -35,6 +35,8 @@ type VoiceClientStateValue = {
   elapsedLabel: string;
   isBusy: boolean;
   activeContactLabel: string | null;
+  activeCall: ActiveCallContext | null;
+  callOverlayVisible: boolean;
 };
 
 type VoiceClientActionsValue = {
@@ -43,6 +45,8 @@ type VoiceClientActionsValue = {
   hangUp: () => Promise<void>;
   toggleMute: () => Promise<void>;
   refreshMicAccess: () => Promise<void>;
+  dismissCallOverlay: () => void;
+  showCallOverlay: () => void;
 };
 
 type VoiceClientContextValue = VoiceClientStateValue & VoiceClientActionsValue;
@@ -79,6 +83,8 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [activeContactLabel, setActiveContactLabel] = useState<string | null>(null);
+  const [activeCall, setActiveCall] = useState<ActiveCallContext | null>(null);
+  const [callOverlayVisible, setCallOverlayVisible] = useState(false);
 
   const tokenRef = useRef<string | null>(null);
   const tokenExpiresAtRef = useRef<number | null>(null);
@@ -109,6 +115,8 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
     setIsMuted(false);
     setElapsedSeconds(0);
     setActiveContactLabel(null);
+    setActiveCall(null);
+    setCallOverlayVisible(false);
     setPhase((current) => (current === 'error' ? current : 'ready'));
   }, [detachCallListeners]);
 
@@ -254,6 +262,13 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
 
         const label = request.contactLabel?.trim() || connectParams.To;
         setActiveContactLabel(label);
+        setActiveCall({
+          threadId: request.threadId,
+          inboxId: request.inboxId,
+          customerE164: request.customerE164,
+          contactLabel: label,
+        });
+        setCallOverlayVisible(true);
         const voice = getVoiceInstance();
         const call = await voice.connect(token, {
           params,
@@ -301,6 +316,14 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
   const refreshMicAccess = useCallback(async () => {
     const next = await getMicrophoneAccessStatus();
     setMicAccess(next);
+  }, []);
+
+  const dismissCallOverlay = useCallback(() => {
+    setCallOverlayVisible(false);
+  }, []);
+
+  const showCallOverlay = useCallback(() => {
+    setCallOverlayVisible(true);
   }, []);
 
   useEffect(() => {
@@ -362,6 +385,8 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
     hangUp,
     toggleMute,
     refreshMicAccess,
+    dismissCallOverlay,
+    showCallOverlay,
   });
   actionsRef.current = {
     ensureReady,
@@ -369,6 +394,8 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
     hangUp,
     toggleMute,
     refreshMicAccess,
+    dismissCallOverlay,
+    showCallOverlay,
   };
 
   const stableActions = useMemo<VoiceClientActionsValue>(
@@ -378,6 +405,8 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
       hangUp: () => actionsRef.current.hangUp(),
       toggleMute: () => actionsRef.current.toggleMute(),
       refreshMicAccess: () => actionsRef.current.refreshMicAccess(),
+      dismissCallOverlay: () => actionsRef.current.dismissCallOverlay(),
+      showCallOverlay: () => actionsRef.current.showCallOverlay(),
     }),
     [],
   );
@@ -391,8 +420,10 @@ export function VoiceClientProvider({ children, enabled }: { children: ReactNode
       elapsedLabel: formatVoiceElapsed(elapsedSeconds),
       isBusy: phase === 'connecting' || phase === 'in-call',
       activeContactLabel,
+      activeCall,
+      callOverlayVisible,
     }),
-    [activeContactLabel, elapsedSeconds, errorMessage, isMuted, micAccess, phase],
+    [activeCall, activeContactLabel, callOverlayVisible, elapsedSeconds, errorMessage, isMuted, micAccess, phase],
   );
 
   const value = useMemo<VoiceClientContextValue>(

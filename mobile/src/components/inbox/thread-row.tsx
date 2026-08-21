@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ContactAvatar } from '@/components/avatars/contact-avatar';
+import { Archive } from '@/components/icons/lucide';
 import { formatRelativeTime } from '@/lib/format-time';
 import { formatThreadTitle } from '@/lib/messaging/threads';
 import { isThreadUnread } from '@/lib/messaging/unread';
@@ -23,34 +24,49 @@ function formatSnippet(thread: Thread): string {
 }
 
 export function ThreadRow({ thread, readAt, onPress, onLongPress }: ThreadRowProps) {
-  const unread = isThreadUnread(thread, readAt);
+  const isDone = Boolean(thread.archived_at);
+  const unread = !isDone && isThreadUnread(thread, readAt);
   const title = formatThreadTitle(thread);
   const snippet = formatSnippet(thread);
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={isDone ? `${title}, done deal` : title}
       onPress={onPress}
       onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.row,
+        isDone && styles.rowDone,
         unread && styles.rowUnread,
-        pressed && styles.rowPressed,
+        pressed && (isDone ? styles.rowDonePressed : styles.rowPressed),
       ]}>
-      <ContactAvatar
-        displayName={thread.display_name}
-        phoneE164={thread.customer_e164}
-        showUnreadDot={unread}
-        size="md"
-      />
+      <View style={isDone ? styles.avatarDone : undefined}>
+        <ContactAvatar
+          displayName={thread.display_name}
+          phoneE164={thread.customer_e164}
+          showUnreadDot={unread}
+          size="md"
+        />
+      </View>
       <View style={styles.content}>
         <View style={styles.topLine}>
-          <Text style={[styles.title, unread && styles.titleUnread]} numberOfLines={1}>
+          <Text
+            style={[styles.title, isDone && styles.titleDone, unread && styles.titleUnread]}
+            numberOfLines={1}>
             {title}
           </Text>
-          <Text style={styles.timestamp}>{formatRelativeTime(thread.last_message_at)}</Text>
+          {isDone ? (
+            <View style={styles.doneBadge}>
+              <Archive color={tavColors.zinc600} size={12} strokeWidth={2.2} />
+              <Text style={styles.doneBadgeText}>Done</Text>
+            </View>
+          ) : null}
+          <Text style={[styles.timestamp, isDone && styles.timestampDone]}>
+            {formatRelativeTime(thread.last_message_at)}
+          </Text>
         </View>
-        <Text style={[styles.snippet, unread && styles.snippetUnread]} numberOfLines={2}>
+        <Text style={[styles.snippet, isDone && styles.snippetDone, unread && styles.snippetUnread]} numberOfLines={2}>
           {snippet}
         </Text>
       </View>
@@ -69,6 +85,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tavColors.zinc50,
   },
+  rowDone: {
+    backgroundColor: tavColors.zinc50,
+  },
+  rowDonePressed: {
+    backgroundColor: tavColors.zinc100,
+  },
   rowUnread: {
     borderLeftWidth: 3,
     borderLeftColor: tavColors.blue,
@@ -76,6 +98,9 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     backgroundColor: tavColors.zinc50,
+  },
+  avatarDone: {
+    opacity: 0.72,
   },
   content: {
     flex: 1,
@@ -92,15 +117,42 @@ const styles = StyleSheet.create({
     ...tavTypography.threadTitle,
     color: tavColors.zinc900,
   },
+  titleDone: {
+    color: tavColors.zinc500,
+    fontWeight: '500',
+  },
   titleUnread: {
     ...tavTypography.threadTitleUnread,
+  },
+  doneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: tavColors.zinc200,
+  },
+  doneBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    color: tavColors.zinc600,
   },
   timestamp: {
     ...tavTypography.meta,
     color: tavColors.zinc500,
+    flexShrink: 0,
+  },
+  timestampDone: {
+    color: tavColors.zinc400,
   },
   snippet: {
     ...tavTypography.threadSnippet,
+  },
+  snippetDone: {
+    color: tavColors.zinc400,
   },
   snippetUnread: {
     fontWeight: '500',

@@ -1,7 +1,16 @@
 import { Href, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { SupportScreenShell } from '@/components/workspace/support-screen-shell';
+import {
+  SupportCard,
+  SupportIntroText,
+  SupportKbd,
+  SupportLinkList,
+  SupportLinkRow,
+  SupportScrollContent,
+  SupportSection,
+} from '@/components/workspace/support-screen-ui';
 import { HELP_QUICK_LINKS, HELP_SECTIONS } from '@/lib/help/topics';
 import { tavColors } from '@/lib/theme';
 
@@ -10,72 +19,68 @@ export default function HelpScreen() {
 
   return (
     <SupportScreenShell title="Help" padded={false} showBack backLabel="Profile">
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.intro}>
-          Quick reference for messaging, notifications, and account screens in TAV Communication.
-        </Text>
+      <ScrollView contentContainerStyle={styles.scrollGrow}>
+        <SupportScrollContent>
+          <SupportIntroText>
+            Quick reference for messaging, notifications, and account screens in TAV Communication.
+          </SupportIntroText>
 
-        {HELP_SECTIONS.map((section) => (
-          <View key={section.id} style={styles.card}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.paragraphs.map((paragraph) => (
-              <Text key={paragraph} style={styles.paragraph}>
-                {paragraph}
-              </Text>
-            ))}
-            {section.bullets?.length ? (
-              <View style={styles.bulletList}>
-                {section.bullets.map((bullet) => (
-                  <View key={bullet} style={styles.bulletRow}>
-                    <Text style={styles.bulletMark}>•</Text>
-                    <Text style={styles.bulletText}>{bullet}</Text>
+          {HELP_SECTIONS.map((section) => (
+            <SupportCard key={section.id}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              {section.paragraphs.map((paragraph) => (
+                <Text key={paragraph} style={styles.paragraph}>
+                  {paragraph}
+                </Text>
+              ))}
+              {section.bullets?.length ? (
+                <View style={styles.bulletList}>
+                  {section.bullets.map((bullet) => (
+                    <View key={bullet} style={styles.bulletRow}>
+                      <Text style={styles.bulletMark}>•</Text>
+                      <Text style={styles.bulletText}>{bullet}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {section.id === 'mobile-notes' ? (
+                <View style={styles.shortcutRow}>
+                  <Text style={styles.shortcutLabel}>Web shortcuts not on mobile:</Text>
+                  <View style={styles.shortcutChips}>
+                    <SupportKbd>⌘K</SupportKbd>
+                    <SupportKbd>Ctrl+K</SupportKbd>
+                    <SupportKbd>Esc</SupportKbd>
                   </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ))}
+                </View>
+              ) : null}
+            </SupportCard>
+          ))}
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Quick links</Text>
-          <View style={styles.linkList}>
-            {HELP_QUICK_LINKS.map((link) => (
-              <Pressable
-                key={link.id}
-                accessibilityRole="button"
-                onPress={() => {
-                  router.push(link.href as Href);
-                }}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-                <Text style={styles.linkLabel}>{link.label}</Text>
-                <Text style={styles.linkChevron}>→</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+          <SupportSection title="Quick links">
+            <SupportCard style={styles.linkCard}>
+              <SupportLinkList>
+                {HELP_QUICK_LINKS.map((link, index) => (
+                  <SupportLinkRow
+                    key={link.id}
+                    isLast={index === HELP_QUICK_LINKS.length - 1}
+                    label={link.label}
+                    onPress={() => {
+                      router.push(link.href as Href);
+                    }}
+                  />
+                ))}
+              </SupportLinkList>
+            </SupportCard>
+          </SupportSection>
+        </SupportScrollContent>
       </ScrollView>
     </SupportScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    gap: 14,
-    paddingBottom: 32,
-  },
-  intro: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: tavColors.zinc600,
-  },
-  card: {
-    backgroundColor: tavColors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: tavColors.zinc200,
-    padding: 14,
-    gap: 10,
+  scrollGrow: {
+    flexGrow: 1,
   },
   sectionTitle: {
     fontSize: 17,
@@ -106,27 +111,24 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: tavColors.zinc700,
   },
-  linkList: {
-    gap: 4,
+  shortcutRow: {
+    gap: 8,
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tavColors.zinc200,
   },
-  linkRow: {
+  shortcutLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tavColors.zinc600,
+  },
+  shortcutChips: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderRadius: 8,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  linkRowPressed: {
-    backgroundColor: tavColors.zinc50,
-  },
-  linkLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: tavColors.blue,
-  },
-  linkChevron: {
-    fontSize: 16,
-    color: tavColors.blue,
+  linkCard: {
+    paddingVertical: 8,
+    gap: 0,
   },
 });

@@ -39,7 +39,7 @@ export function WorkspaceSearchProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { session, profile } = useAuth();
   const userId = session?.user.id;
-  const { activeInbox, activeInboxId, setActiveInboxId, setActiveTab } = useInboxWorkspace();
+  const { activeInbox, activeInboxId, inboxes, setActiveInboxId, setActiveTab } = useInboxWorkspace();
 
   const [isOpen, setIsOpen] = useState(false);
   const [recentThreads, setRecentThreads] = useState<SearchRecentThread[]>([]);
@@ -98,6 +98,14 @@ export function WorkspaceSearchProvider({ children }: { children: ReactNode }) {
     [activeInboxId, router, setActiveInboxId, setActiveTab, userId],
   );
 
+  const inboxNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        inboxes.map((inbox) => [inbox.id, inbox.display_name?.trim() || inbox.slug || 'Inbox']),
+      ),
+    [inboxes],
+  );
+
   const value = useMemo(
     () => ({
       openSearch,
@@ -118,6 +126,7 @@ export function WorkspaceSearchProvider({ children }: { children: ReactNode }) {
         recentThreads={recentThreads}
         recentInboxId={activeInboxId}
         recentInboxName={activeInbox?.display_name ?? null}
+        inboxNameById={inboxNameById}
         currentUserName={profile?.display_name ?? null}
       />
     </WorkspaceSearchContext.Provider>

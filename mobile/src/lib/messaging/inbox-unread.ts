@@ -15,3 +15,12 @@ export async function fetchInboxUnreadCount(userId: string, inboxId: string): Pr
 
   return countUnreadThreads(threads, buildThreadReadMap(reads));
 }
+
+export async function fetchTotalInboxUnreadCount(userId: string, inboxIds: string[]): Promise<number> {
+  if (inboxIds.length === 0) {
+    return 0;
+  }
+
+  const counts = await Promise.all(inboxIds.map((inboxId) => fetchInboxUnreadCount(userId, inboxId)));
+  return counts.reduce((total, count) => total + count, 0);
+}

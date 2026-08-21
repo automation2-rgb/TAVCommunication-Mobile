@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from '@/components/icons/lucide';
 import { formatChatBadgeCount, useChatAttention } from '@/contexts/chat-attention';
+import { formatInboxBadgeCount, useInboxAttention } from '@/contexts/inbox-attention';
 import { formatMissedBadgeCount, useMissedCalls } from '@/contexts/missed-calls';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { pressScaleStyle, tavColors } from '@/lib/theme';
@@ -45,6 +46,7 @@ export function AppTabBar({ state, navigation }: TabBarProps) {
   const { isTabBarHidden } = useTabBarVisibility();
   const { unseenMissedCount } = useMissedCalls();
   const { unreadConversationCount } = useChatAttention();
+  const { totalUnreadCount } = useInboxAttention();
 
   if (isTabBarHidden) {
     return null;
@@ -52,6 +54,7 @@ export function AppTabBar({ state, navigation }: TabBarProps) {
 
   const missedBadge = formatMissedBadgeCount(unseenMissedCount);
   const chatBadge = formatChatBadgeCount(unreadConversationCount);
+  const textBadge = formatInboxBadgeCount(totalUnreadCount);
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -64,7 +67,13 @@ export function AppTabBar({ state, navigation }: TabBarProps) {
         const focused = state.index === index;
         const Icon = config.icon;
         const badge =
-          route.name === 'calls/index' ? missedBadge : route.name === 'chat' ? chatBadge : null;
+          route.name === 'inbox'
+            ? textBadge
+            : route.name === 'calls/index'
+              ? missedBadge
+              : route.name === 'chat'
+                ? chatBadge
+                : null;
 
         return (
           <Pressable

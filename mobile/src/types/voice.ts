@@ -49,6 +49,13 @@ export type VoicePhase =
   | 'in-call'
   | 'error';
 
+export type ActiveCallContext = {
+  threadId: string;
+  inboxId: string;
+  customerE164: string;
+  contactLabel: string;
+};
+
 export type MissedCountResponse = {
   unseenMissedCount: number;
   latestMissed?: CallLog | null;

@@ -10,18 +10,18 @@
 
 ## Progress summary
 
-**Last updated:** 2026-07-23 · **Current focus:** Compose screen restyle; supporting-screen polish; motion layer
+**Last updated:** 2026-08-20 · **Current focus:** Supporting-screen polish; motion layer; identity anchor gaps
 
 | Area | Status |
 |------|--------|
 | §2 Native app shell | ✅ Done |
 | §3 Inbox thread list + switcher + user menu | ✅ Done |
-| §3 Conversation + bubbles + composer | 🟡 Mostly done — lg avatar, in-call header pill, failed retry pill pending |
-| §3 Compose (`inbox/compose`) | ⬜ Not restyled |
+| §3 Conversation + bubbles + composer | 🟡 Mostly done — lg avatar, failed retry pill ✅ |
+| §3 Compose (`inbox/compose`) | ✅ Done |
 | §6 Design tokens | ✅ Done (Geist font deferred) |
 | §7 Avatars + inbox tiles | ✅ Done (group avatar deferred) |
 | §8 Lucide icons | ✅ Done |
-| §9 Supporting screens | 🟡 Functional — card/input/toggle polish pending |
+| §9 Supporting screens | ✅ Done |
 | §10 Motion | 🟡 Press scale on key components only |
 | §13 Identity anchors | 🟡 11/13 ✅ |
 
@@ -62,12 +62,12 @@ Web desktop uses a persistent sidebar + multi-column inbox. **Native v1 never sh
 | Onboarding | `(auth)/onboarding` | Light account card | ✅ |
 | Pending / rejected | `(auth)/pending`, `(auth)/rejected` | Light account card | ✅ |
 | `/inbox` | `(app)/inbox`, `(app)/inbox/[threadId]` | **Custom inbox shell** — no global back header | ✅ |
-| New conversation | `(app)/inbox/compose` | Conversation-style header | 🟡 Functional; design pass pending |
+| New conversation | `(app)/inbox/compose` | Conversation-style header | ✅ |
 | `/calls` | `(app)/calls` | `SupportScreenShell` | ✅ |
 | `/contacts` | `(app)/contacts` | `SupportScreenShell` | ✅ |
-| `/profile` | `(app)/profile` | `SupportScreenShell` | 🟡 |
-| `/settings` | `(app)/settings` | `SupportScreenShell` | 🟡 |
-| `/help` | `(app)/help` | `SupportScreenShell` | 🟡 |
+| `/profile` | `(app)/profile` | `SupportScreenShell` | ✅ |
+| `/settings` | `(app)/settings` | `SupportScreenShell` | ✅ |
+| `/help` | `(app)/help` | `SupportScreenShell` | ✅ |
 | `/chat` | — | **v1 out of scope** | ⏸ |
 | `/team/[id]` | — | **v1 out of scope** | ⏸ |
 | Dev dashboard | — | **Out of scope** | ⏸ |
@@ -109,7 +109,7 @@ Supporting screens (Calls, Contacts, …):
 | Inbox conversation + header | `#ffffff` | `tavColors.canvas` / `white` | ✅ |
 | Composer strip | `#f2f2f7` | `tavColors.composerSlab` | ✅ |
 | Supporting pages | `bg-zinc-50` | `tavColors.zinc50` | ✅ |
-| Cards on supporting pages | `bg-white` + border | `white` + `zinc200` border | 🟡 |
+| Cards on supporting pages | `bg-white` + border | `SupportCard` + `tavShadows.sm` | ✅ |
 
 ### 2.4 Safe areas
 
@@ -132,7 +132,7 @@ Web §6.3: two full-screen layers with horizontal slide. **Native equivalent:** 
 | User menu | `UserMenuSheet` | ✅ | Amber missed-calls badge on Calls row |
 | New conversation | Header `Plus` | ✅ | Routes to `inbox/compose` |
 | Filter tabs | `ThreadTabs` | ✅ | White selected chip + ring |
-| Thread row | `ThreadRow` | ✅ | 40px avatar, blue left border unread, `You:` prefix, `#f8f8f8` bg |
+| Thread row | `ThreadRow` | ✅ | 40px avatar, blue left border unread, `You:` prefix; muted row + Done badge when archived |
 | Row actions | Long-press `Alert` | ✅ | Native substitute for web hover buttons |
 | Empty states | `InboxEmptyState` | ✅ | All §7 variants |
 | Zero inboxes | `RequestInboxAccessPanel` | ✅ | Amber warning tone |
@@ -143,7 +143,7 @@ Web §6.3: two full-screen layers with horizontal slide. **Native equivalent:** 
 |-------------|------------------|--------|-------|
 | Back | `ConversationHeader` | ✅ | `ArrowLeft` + "Back" |
 | Avatar + title + phone | `ConversationHeader` | 🟡 | Uses **md (40px)** avatar; web spec is **lg (48px)** |
-| Call button | `ThreadVoiceCallControls` | 🟡 | Bordered square idle ✅; in-call uses `InCallOverlay` modal, not header emerald pill |
+| Call button | `ThreadVoiceCallControls` | ✅ | Full-screen `InCallOverlay` + minimized banner when returning to thread |
 | Mark done / overflow | Header actions | ✅ | Lucide `Archive`, `MoreVertical` |
 | Message list | `MessageList` + `MessageBubble` | ✅ | See §4 |
 | Date dividers | `MessageList` | ✅ | Today / Yesterday / weekday pills |
@@ -164,10 +164,10 @@ Web §6.3: two full-screen layers with horizontal slide. **Native equivalent:** 
 
 | Web §6.9 | Mobile | Status |
 |----------|--------|--------|
-| Card "Who are you messaging?" | Recipient picker card on `zinc-50` | ⬜ |
-| "Open directory" link | Link to contacts with return compose | ⬜ |
+| Card "Who are you messaging?" | Recipient picker card on `zinc-50` | ✅ |
+| "Open directory" link | Link to contacts with return compose | ✅ |
 | Composer gated on E.164 | Behavioral gate works | ✅ |
-| Shared `Composer` component | Plain form + text attach buttons | ⬜ Restyle to match thread composer |
+| Shared `Composer` component | Shared `Composer` at bottom (same as thread) | ✅ |
 
 ---
 
@@ -191,7 +191,7 @@ Web uses CSS gradient + pseudo-element tails. React Native has no pseudo-element
 | Outbound tail notch | CSS pseudo | Skipped — gradient + asymmetric radius sufficient | ⏸ |
 | Status + time | Inside outbound footer | `MessageStatusIcon` + dim white time | ✅ |
 | Inbound timestamp | Outside below bubble | `text-[10px] zinc-400` | ✅ |
-| Failed state | Red border + retry pill | Red border ✅; retry pill | ⬜ |
+| Failed state | Red border + retry pill | Red border + retry pill | ✅ |
 | Media | `max-h-52 rounded-lg` | `AttachmentThumbnail` | ✅ |
 | Grouping gap | `mt-0` vs `mt-2` | `compactTop` in `MessageList` | ✅ |
 
@@ -202,7 +202,8 @@ Web uses CSS gradient + pseudo-element tails. React Native has no pseudo-element
 - [x] Inbound subtle ring/shadow
 - [x] Inbound timestamp outside bubble
 - [x] Message grouping spacing
-- [ ] Failed message **retry pill** inside bubble
+- [x] Failed message **retry pill** inside bubble
+- [x] Long-press message actions (copy text, copy phone, call)
 - [ ] Sender avatar tail on last outbound in group (§5.3)
 - [ ] Outbound CSS tail notch (optional — deferred)
 
@@ -379,14 +380,14 @@ Web HTML table parity deferred — mobile uses consumer phone-app list pattern i
 | Contact rows | `ContactRow` — hashed avatar, tag chips | ✅ |
 | Message action | Blue-50 border button | 🟡 Whole row tap → compose (no separate button) |
 
-### 9.3 Profile / Settings / Help — 🟡 Partial
+### 9.3 Profile / Settings / Help — ✅ Done
 
 | Web | Mobile | Status |
 |-----|--------|--------|
-| Stacked white cards `rounded-xl p-5` | Form sections in white cards | 🟡 Lighter shadow/radius than web |
-| Inputs `rounded-lg border-zinc-300` | TextInput styles | 🟡 No focus blue ring yet |
-| Settings toggles iOS style | Native `Switch`, blue track | 🟡 Not custom 48×28 dimensions |
-| Help `<kbd>` chips | Plain text bullets | ⬜ |
+| Stacked white cards `rounded-xl p-5` | `SupportCard` in `support-screen-ui.tsx` | ✅ |
+| Inputs `rounded-lg border-zinc-300` | `SupportTextInput` with blue focus ring | ✅ |
+| Settings toggles iOS style | Native `Switch`, blue track | ✅ |
+| Help `<kbd>` chips | `SupportKbd` on mobile-notes section | ✅ |
 | Inbox sidebar prefs | **v1 skip** | ⏸ |
 
 ### 9.4 Auth screens — 🟡 Mostly done
@@ -429,7 +430,7 @@ Web HTML table parity deferred — mobile uses consumer phone-app list pattern i
 | Collapsible thread list rail | N/A | — |
 | Chat / team view | Out of scope | ⏸ |
 | Bug report / dev dashboard | Out of scope | ⏸ |
-| In-call header pill | `InCallOverlay` modal | 🟡 Different layout, same controls |
+| In-call header pill | `InCallOverlay` full-screen + banner | ✅ |
 
 ---
 
@@ -446,8 +447,8 @@ Implement design parity **only for shipped v1 features** (see `IMPLEMENTATION_PL
 | Empty + request access states | P1 | ✅ |
 | Contacts read-only | P1 | 🟡 |
 | Profile, Settings, Help | P2 | 🟡 |
-| Calls history + voice UI | P2 (Phase 12) | 🟡 History ✅; in-call overlay 🟡 |
-| Push / in-app banners | P2 — OS notifications | ✅ Minimal in-app chrome |
+| Calls history + voice UI | P2 (Phase 12) | 🟡 History ✅; in-call overlay ✅; device QA pending |
+| Push / in-app banners | P2 — OS notifications | ✅ Offline reconnect banner + minimal in-app chrome |
 
 | Out of scope (defer design work) |
 |----------------------------------|
@@ -480,7 +481,7 @@ Use before marking a design pass complete:
 | 12 | Empty states | Icon circle variants | ✅ |
 | 13 | Lucide icons | Consistent set | ✅ |
 
-**Remaining before “design pass complete”:** compose screen restyle (§3.4), conversation lg avatar, failed retry pill, supporting-screen card polish, Geist font (optional), motion layer (optional).
+**Remaining before “design pass complete”:** conversation lg avatar, supporting-screen card polish ✅, Geist font (optional), motion layer (optional).
 
 ---
 
@@ -501,7 +502,7 @@ Use before marking a design pass complete:
 | 11 | **Auth login** — dark hero restyle | ✅ |
 | 12 | **Supporting screens** — card/input/tab polish | 🟡 |
 | 13 | **Calls rows** — amber missed, status pills | ✅ |
-| 14 | **Compose screen** — §3.4 card restyle | ⬜ |
+| 14 | **Compose screen** — §3.4 card restyle | ✅ |
 | 15 | **Motion polish** — global press scale, list animations | ⬜ |
 
 ---
@@ -524,7 +525,7 @@ Use before marking a design pass complete:
 | Auth | `(auth)/login.tsx`, `components/auth/*` |
 | Calls | `calls/index.tsx`, `call-log-row.tsx`, `dial-keypad-modal.tsx`, `calls-quick-actions.tsx`, `call-detail-sheet.tsx`, `voice-inbox-picker-sheet.tsx` |
 | Voice overlay | `voice/in-call-overlay.tsx`, `thread-voice-call-controls.tsx` |
-| Compose (restyle pending) | `inbox/compose.tsx` |
+| Compose | `inbox/compose.tsx` |
 
 ---
 

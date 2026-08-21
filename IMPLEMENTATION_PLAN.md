@@ -14,7 +14,7 @@ Step-by-step implementation plan for **v1 company-only release** (TestFlight + P
 
 ## Progress summary
 
-**Last updated:** 2026-08-11 · **Current focus:** Global workspace search (mobile parity); device QA for search + calls + chat
+**Last updated:** 2026-08-21 · **Current focus:** UX polish (offline banner, search, thread rows)
 
 | Phase | Name | Status |
 |-------|------|--------|

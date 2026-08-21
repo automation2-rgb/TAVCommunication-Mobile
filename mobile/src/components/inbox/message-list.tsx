@@ -5,7 +5,7 @@ import { InboxEmptyState } from '@/components/inbox/empty-state';
 import { MessageBubble } from '@/components/inbox/message-bubble';
 import { useMessageAttachments } from '@/hooks/use-message-attachments';
 import { formatMessageDateLabel, isSameCalendarDay } from '@/lib/format-time';
-import type { PendingAttachmentPreview } from '@/lib/messaging/send-message';
+import { isFailedMessageStatus, type PendingAttachmentPreview } from '@/lib/messaging/send-message';
 import { tavColors, tavTypography } from '@/lib/theme';
 import type { Message } from '@/types/messaging';
 
@@ -18,6 +18,9 @@ type MessageListProps = {
   hasMore: boolean;
   onLoadOlder: () => void;
   highlightMessageId?: string | null;
+  onRetryMessage?: (message: Message) => void;
+  retryingMessageId?: string | null;
+  onLongPressMessage?: (message: Message) => void;
 };
 
 type MessageListItem =
@@ -65,6 +68,9 @@ export function MessageList({
   hasMore,
   onLoadOlder,
   highlightMessageId = null,
+  onRetryMessage,
+  retryingMessageId = null,
+  onLongPressMessage,
 }: MessageListProps) {
   const listRef = useRef<FlatList<MessageListItem>>(null);
   const messageIds = useMemo(
@@ -141,8 +147,26 @@ export function MessageList({
             pendingAttachments={pendingAttachmentsByMessageId[item.message.id]}
             compactTop={item.compactTop}
             highlighted={item.message.id === highlightMessageId}
+            isRetrying={item.message.id === retryingMessageId}
             isSelf={item.message.direction === 'outbound' && item.message.sent_by === currentUserId}
             message={item.message}
+            onRetry={
+              onRetryMessage &&
+              item.message.direction === 'outbound' &&
+              item.message.sent_by === currentUserId &&
+              isFailedMessageStatus(item.message.status)
+                ? () => {
+                    onRetryMessage(item.message);
+                  }
+                : undefined
+            }
+            onLongPress={
+              onLongPressMessage
+                ? () => {
+                    onLongPressMessage(item.message);
+                  }
+                : undefined
+            }
           />
         );
       }}

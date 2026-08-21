@@ -15,12 +15,15 @@ import { ContactAvatar } from '@/components/avatars/contact-avatar';
 import { Search, X } from '@/components/icons/lucide';
 import { fetchWorkspaceSearch, SearchApiError } from '@/lib/search/search-api';
 import {
+  enrichSearchRowsWithInboxNames,
   flattenSearchResults,
   formatRecentThreadPreview,
   formatSearchMessagePreview,
+  formatSearchResultTitle,
   getSearchThreadTitle,
   SEARCH_DEBOUNCE_MS,
   SEARCH_MIN_QUERY_LENGTH,
+  shouldShowInboxNameForRow,
 } from '@/lib/search/search-display';
 import { pressScaleStyle, tavColors, tavShadows, tavTypography } from '@/lib/theme';
 import type { SearchPressableRow, SearchRecentThread, SearchResultRow, SearchSelectPayload } from '@/types/search';
@@ -32,6 +35,7 @@ type SearchModalProps = {
   recentThreads: SearchRecentThread[];
   recentInboxId: string | null;
   recentInboxName: string | null;
+  inboxNameById: Record<string, string>;
   currentUserName?: string | null;
 };
 
@@ -51,23 +55,15 @@ function SearchSkeletonRows() {
   );
 }
 
-function InboxBadge({ label }: { label: string }) {
-  return (
-    <View style={styles.inboxBadge}>
-      <Text style={styles.inboxBadgeText} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 function SearchResultRowView({
   row,
   currentUserName,
+  showInboxName,
   onPress,
 }: {
   row: SearchPressableRow;
   currentUserName?: string | null;
+  showInboxName: boolean;
   onPress: () => void;
 }) {
   if (row.kind === 'recent') {
@@ -90,7 +86,8 @@ function SearchResultRowView({
     );
   }
 
-  const title = getSearchThreadTitle(row.thread);
+  const threadTitle = getSearchThreadTitle(row.thread);
+  const title = formatSearchResultTitle(threadTitle, row.inboxDisplayName, showInboxName);
   const preview =
     row.kind === 'message'
       ? formatSearchMessagePreview(row.message, currentUserName)
@@ -103,12 +100,9 @@ function SearchResultRowView({
       style={({ pressed }) => [styles.resultRow, pressed && styles.resultRowPressed]}>
       <ContactAvatar displayName={row.thread.display_name} phoneE164={row.thread.customer_e164} size="md" />
       <View style={styles.resultContent}>
-        <View style={styles.resultTitleRow}>
-          <Text style={styles.resultTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          {row.inboxDisplayName ? <InboxBadge label={row.inboxDisplayName} /> : null}
-        </View>
+        <Text style={styles.resultTitle} numberOfLines={1}>
+          {title}
+        </Text>
         <Text style={styles.resultPreview} numberOfLines={2}>
           {preview}
         </Text>
@@ -124,6 +118,7 @@ export function SearchModal({
   recentThreads,
   recentInboxId,
   recentInboxName,
+  inboxNameById,
   currentUserName,
 }: SearchModalProps) {
   const insets = useSafeAreaInsets();
@@ -153,8 +148,8 @@ export function SearchModal({
       );
     }
 
-    return flattenSearchResults(results);
-  }, [recentInboxId, recentThreads, results, showRecent]);
+    return enrichSearchRowsWithInboxNames(flattenSearchResults(results), inboxNameById);
+  }, [inboxNameById, recentInboxId, recentThreads, results, showRecent]);
 
   const performSearch = useCallback(async (searchQuery: string) => {
     const normalized = searchQuery.trim();
@@ -311,6 +306,10 @@ export function SearchModal({
                   <SearchResultRowView
                     currentUserName={currentUserName}
                     row={item}
+                    showInboxName={
+                      item.kind !== 'recent' &&
+                      shouldShowInboxNameForRow(item.inboxId, listRows, recentInboxId)
+                    }
                     onPress={() => {
                       handleSelectRow(item);
                     }}
@@ -407,30 +406,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 2,
   },
-  resultTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   resultTitle: {
-    flexShrink: 1,
     ...tavTypography.threadTitle,
     color: tavColors.zinc900,
   },
   resultPreview: {
     ...tavTypography.threadSnippet,
-    color: tavColors.zinc600,
-  },
-  inboxBadge: {
-    maxWidth: 120,
-    borderRadius: 999,
-    backgroundColor: tavColors.zinc100,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  inboxBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
     color: tavColors.zinc600,
   },
   emptyState: {

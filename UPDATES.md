@@ -23,14 +23,14 @@ Organized by type so you can pick what to build next.
 
 | # | Item | Type | Section |
 |---|------|------|---------|
-| 1 | Text tab unread badge | UX | §2.1 |
+| 1 | Text tab unread badge | UX | §2.1 ✅ |
 | 2 | Action sheets instead of alerts | UX | §2.3 |
-| 3 | Failed message retry pill | UX | §2.2 |
-| 4 | Compose screen restyle | Design | §1.6 |
+| 3 | Failed message retry pill | UX | §2.2 ✅ |
+| 4 | Compose screen restyle | Design | §1.2 ✅ |
 | 5 | Skeleton loaders (thread list, conversation, calls) | Design | §1.2 |
 | 6 | Snippets / canned responses | Feature | §3.1 |
-| 7 | Full-screen in-call UI | Design | §1.7 |
-| 8 | Long-press copy message / phone number | UX | §2.5 |
+| 7 | Full-screen in-call UI | Design | §1.6 ✅ |
+| 8 | Long-press copy message / phone number | UX | §2.5 ✅ |
 
 ---
 
@@ -41,13 +41,13 @@ Same functionality — more professional, consistent presentation.
 | Status | # | Update | Detail |
 |--------|---|--------|--------|
 | ⬜ | 1.1 | **Loading skeletons** | Replace centered spinners with gray placeholder rows (avatar + two lines) on thread list, conversation, and call history. Search modal already has skeletons — extend that pattern. |
-| ⬜ | 1.2 | **Compose screen restyle** | `inbox/compose` is functional but not fully styled. Match conversation header: recipient chip, cleaner search field, card layout. Ref: `docs/mobile-first-layout.md` §3.4. |
+| ✅ | 1.2 | **Compose screen restyle** | Conversation-style header, “Who are you messaging?” card on `zinc-50`, recipient chip, search field, Open directory link. Ref: `docs/mobile-first-layout.md` §3.4. |
 | ⬜ | 1.3 | **Conversation header — larger avatar** | Bump avatar from 40px (`md`) to 48px (`lg`) in conversation header for more presence. Ref: design doc identity anchors. |
 | ⬜ | 1.4 | **Lucide icon for pending attachments** | Replace 📎 emoji in pending attachment tiles with `Paperclip` icon for Lucide consistency. |
 | ⬜ | 1.5 | **Geist or Inter font** | Load Geist (web parity) or Inter via `@expo-google-fonts` for tighter typography on titles and thread names. Currently deferred in implementation plan. |
-| ⬜ | 1.6 | **Full-screen in-call UI** | Upgrade in-call overlay from centered card modal to full-screen call layout: large contact name, elapsed timer, circular mute/hang-up buttons, optional “Return to conversation.” |
+| ✅ | 1.6 | **Full-screen in-call UI** | Dark full-screen call layout: large avatar + name, elapsed timer, circular mute/end buttons, **Return to conversation** (minimized green banner to reopen). |
 | ⬜ | 1.7 | **Inline success/error toasts** | Use bottom snackbars for “Profile saved,” “Marked done,” etc. instead of blocking `Alert.alert` for non-critical feedback. Profile screen already uses inline messages — extend app-wide. |
-| ⬜ | 1.8 | **Supporting screen card polish** | Profile, Settings, Help cards/inputs/toggles — align spacing, borders, and section headers with web mobile. Ref: `docs/mobile-first-layout.md` §9. |
+| ✅ | 1.8 | **Supporting screen card polish** | Shared `support-screen-ui` cards (`rounded-xl`, shadow), section headers, focus-ring inputs, Settings rows, Help kbd chips. Profile / Settings / Help restyled. |
 | ⬜ | 1.9 | **Empty states with CTAs** | Add primary buttons on empty states: “Start a conversation,” “Request inbox access,” “Enable notifications” instead of text-only dead ends. |
 | ⬜ | 1.10 | **Global press scale + list motion** | Apply `pressScaleStyle` consistently; optional Reanimated list enter animations. Ref: `docs/mobile-first-layout.md` §10. |
 
@@ -59,15 +59,15 @@ Not new features — faster, clearer use of what exists today.
 
 | Status | # | Update | Detail |
 |--------|---|--------|--------|
-| ⬜ | 2.1 | **Text tab unread badge** | Show total SMS unread count on the Text tab. Calls and Chats tabs already have badges; Text tab does not. High impact for multi-inbox workers. |
-| ⬜ | 2.2 | **Failed message retry pill** | Tap-to-retry on failed/undelivered outbound bubbles. Web has this; mobile styles failed state but offers no retry action. |
+| ✅ | 2.1 | **Text tab unread badge** | Total SMS unread across all inboxes on Text tab via `InboxAttentionProvider`. |
+| ✅ | 2.2 | **Failed message retry pill** | Tap-to-retry on failed/undelivered outbound bubbles. White pill with blue “Retry” inside failed bubble; preserves MMS attachments from pending previews. |
 | ⬜ | 2.3 | **Action sheets instead of alerts** | Replace `Alert.alert` menus with bottom sheets + icons for: contact actions (Message / Text / Call), thread long-press menu, non-critical errors. |
 | ⬜ | 2.4 | **Swipe left for read/unread** | Swipe-right already marks Done/Reopen. Add swipe-left for mark read/unread (iOS Mail pattern) to reduce long-press usage. |
-| ⬜ | 2.5 | **Long-press message actions** | Copy message text, copy phone number, optional “Call this number” from bubble long-press. |
+| ✅ | 2.5 | **Long-press message actions** | Copy message text, copy phone number, and call (when voice-enabled) from bubble long-press via native action menu. |
 | ⬜ | 2.6 | **Haptic feedback** | Light haptics on send, swipe-to-done, tab switch, call connect/disconnect. |
-| ⬜ | 2.7 | **Offline / reconnect banner** | Slim top banner when network is unavailable: “No connection — messages will send when back online.” Helps when MMS or send hangs on weak signal. |
-| ⬜ | 2.8 | **Visual “Done deal” on thread rows** | Muted row style or small archive badge so closed deals are obvious and workers don’t reply by mistake. |
-| ⬜ | 2.9 | **Inbox name in search results** | When search spans inboxes, show which inbox each result belongs to (e.g. “Transportation · John Smith”). |
+| ✅ | 2.7 | **Offline / reconnect banner** | Compact centered “Offline” pill when disconnected (no full-width warning bar). |
+| ✅ | 2.8 | **Visual “Done deal” on thread rows** | Muted row styling + archive “Done” badge when `archived_at` is set so closed deals stand out in the Done tab. |
+| ✅ | 2.9 | **Inbox name in search results** | Cross-inbox hits show `Inbox · Contact` title (e.g. “Transportation · John Smith”) when results span inboxes or differ from the active inbox. |
 
 ---
 
@@ -107,7 +107,7 @@ Same screens — clearer organization.
 | ⬜ | 5.2 | **TypeScript cleanup** | Fix TS errors before EAS/TestFlight: Lucide import paths, tab bar prop types, deprecated `delayPressIn` on `Pressable`. |
 | ⬜ | 5.3 | **Device QA matrix** | Complete Phase 10 test matrix on physical iOS + Android before closed testing. Ref: `IMPLEMENTATION_PLAN.md` §10. |
 | ⬜ | 5.4 | **iOS parity** | MMS, push, voice outbound on TestFlight — Android dev build verified; iOS pending distribution builds. |
-| ⬜ | 5.5 | **Update `mobile-first-layout.md`** | Sync progress table with current app (bottom tabs, chat, calls, search shipped; compose restyle still pending). |
+| ✅ | 5.5 | **Update `mobile-first-layout.md`** | Synced 2026-08-20 — bottom tabs, chat, calls, search, compose restyle shipped. |
 
 ---
 

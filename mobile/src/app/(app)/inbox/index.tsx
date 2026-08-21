@@ -18,6 +18,7 @@ import { RequestInboxAccessPanel } from '@/components/inbox/request-inbox-access
 import { SwipeableThreadRow } from '@/components/inbox/swipeable-thread-row';
 import { ThreadTabs } from '@/components/inbox/thread-tabs';
 import { useInboxWorkspace } from '@/contexts/inbox-workspace';
+import { useInboxAttention } from '@/contexts/inbox-attention';
 import { useWorkspaceSearch } from '@/contexts/workspace-search';
 import { useInboxThreads } from '@/hooks/use-inbox-threads';
 import { fetchInboxUnreadCount } from '@/lib/messaging/inbox-unread';
@@ -44,6 +45,7 @@ export default function InboxListScreen() {
     refreshInboxes,
   } = useInboxWorkspace();
   const { openSearch } = useWorkspaceSearch();
+  const { refreshUnreadCount: refreshTabUnreadCount } = useInboxAttention();
 
   const { threads, readMap, unreadCount, isLoading, error, refresh, setReadMap } = useInboxThreads({
     userId,
@@ -79,7 +81,11 @@ export default function InboxListScreen() {
     return () => {
       cancelled = true;
     };
-  }, [inboxes, userId, threads.length, unreadCount]);
+  }, [inboxes, userId, threads.length, unreadCount, refreshTabUnreadCount]);
+
+  useEffect(() => {
+    void refreshTabUnreadCount();
+  }, [unreadCount, refreshTabUnreadCount]);
 
   const historyOnly = !activeInbox?.twilio_phone_e164;
   const emptyCopy = getEmptyStateForTab(activeTab === 'done' ? 'done' : activeTab === 'unread' ? 'unread' : 'active', historyOnly);

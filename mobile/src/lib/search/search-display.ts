@@ -115,3 +115,46 @@ export function flattenSearchResults(results: SearchResultRow[]): SearchPressabl
 
   return rows;
 }
+
+export function enrichSearchRowsWithInboxNames(
+  rows: SearchPressableRow[],
+  inboxNameById: Record<string, string>,
+): SearchPressableRow[] {
+  return rows.map((row) => {
+    if (row.kind === 'recent') {
+      return row;
+    }
+
+    return {
+      ...row,
+      inboxDisplayName: row.inboxDisplayName ?? inboxNameById[row.inboxId] ?? null,
+    };
+  });
+}
+
+export function shouldShowInboxNameForRow(
+  inboxId: string,
+  rows: SearchPressableRow[],
+  activeInboxId: string | null,
+): boolean {
+  const searchRows = rows.filter((row) => row.kind !== 'recent');
+  const inboxIds = new Set(searchRows.map((row) => row.inboxId));
+
+  if (inboxIds.size > 1) {
+    return true;
+  }
+
+  return Boolean(activeInboxId && inboxId !== activeInboxId);
+}
+
+export function formatSearchResultTitle(
+  threadTitle: string,
+  inboxDisplayName: string | null,
+  showInbox: boolean,
+): string {
+  if (showInbox && inboxDisplayName?.trim()) {
+    return `${inboxDisplayName.trim()} · ${threadTitle}`;
+  }
+
+  return threadTitle;
+}
